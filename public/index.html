@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SMU - PONG</title>
+
+<script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+<!-- script rel="javascript" type="text/javascript" src="phaser.js"></script> -->
+<script rel="javascript" type="text/javascript" src="jogo.js"></script>
+
+<link rel="stylesheet" type="text/css" href="styles.css"/>
+
+</head>
+
+<body>
+
+
+<ul id="menu">
+    SMU - PONG
+
+    <div id="room-selection-container" class="container well">
+        <form class="form-inline">
+            <label>Usuario:</label>
+            <input type="text" class="form-control" id="user-input">
+            <button type="button" class="myButton" id="connect-button">Entrar</button>
+            <button type="button" class="myButton" id="stopconnect-button" disabled="">Sair</button>
+        </form>
+    </div>
+</ul>   
+
+
+<div class="container">
+
+    <!-- <div class="header"> TESTE </div> -->
+
+    <div class="game" id="game"></div>
+
+    <div id="footer">
+        <div class="inline-div">
+            <label for="fchat">Chat:</label><br>
+            <textarea id="inputchat" name="inputchat" disabled="" rows="3" cols="30"></textarea><br> 
+        </div>
+        <div class="inline-div">
+            <label for="fmensagem">Mensagem:</label><br>
+            <textarea id="inputmessage" name="inputmessage" disabled="" rows="3" cols="30"></textarea><br>
+        </div>
+        <button type="button" class="myButton" disabled="" id="sendmessage-button">Enviar</button>
+    </div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script type="text/javascript" src="client.js"></script>
+
+</body>
+
+
+</html>
