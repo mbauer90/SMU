@@ -1,4 +1,4 @@
-PROJETO JOGO PONG + WEBRTC
+# PROJETO JOGO PONG + WEBRTC
 
 DISCIPLINA SISTEMAS MULTIMIDA
 ENGENHARIA DE TELECOMUNICACOES IFSC SJ
@@ -7,7 +7,7 @@ Para as especificações do protocolo de sinalização e demais documentos acess
 
 Para utilizar executar os seguintes comandos
 
-# npm install
-# node server
+npm install
+node server
 
 O servidor ficará ativo na porta 3000
