@@ -54,13 +54,15 @@ io.on('connection', (socket) => {
       socket.leave(loginDetails.roomId)
       socket.emit('ack_bye', loginDetails) //Informa que foi retirado com sucesso
 
-      //console.log(Clients[Clients.findIndex(item => item.isRoomCreator == true)].userId)
-
-
       if(!Clients.length == 0){
         var nisRoomCreator = Clients[Clients.findIndex(item => item.isRoomCreator == true)].userId
         socket.broadcast.to(loginDetails.roomId).emit('leave_room',nisRoomCreator)
       }
+  }) 
+
+  socket.on('ack_leave', (loginDetails) => {
+    console.log(`Recebeu ack_leave de ${loginDetails.userId}`)
+
   }) 
 
 
@@ -75,10 +77,10 @@ io.on('connection', (socket) => {
       socket.broadcast.to(event.loginDetails.roomId).emit('offer', event.sdp)
     })
 
-    socket.on('answer', (event) => {
-      console.log(`Broadcast answer na sala ${event.loginDetails.roomId}`)
+    socket.on('ack_offer', (event) => {
+      console.log(`Broadcast ack_offer na sala ${event.loginDetails.roomId}`)
       //console.log(JSON.stringify(event))
-      socket.broadcast.to(event.loginDetails.roomId).emit('answer', event.sdp)
+      socket.broadcast.to(event.loginDetails.roomId).emit('ack_offer', event.sdp)
     })
 
     socket.on('ice_candidate', (event) => {

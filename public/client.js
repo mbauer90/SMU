@@ -32,16 +32,13 @@ stopconnectButton.addEventListener('click', () => {
 socket.on('room_created', async () => {
   console.log('Socket event callback: room_created')
   buttonLogin()
-
   loginDetails.isRoomCreator = true
 })
 
 socket.on('room_joined', async () => {
   console.log('Socket event callback: room_joined')
   buttonLogin()
-
   loginDetails.isRoomCreator = false
-
   console.log('Socket send: enter_call')
   socket.emit('enter_call', loginDetails)
 })
@@ -52,6 +49,8 @@ socket.on('leave_room', async (nisRoomCreator) => {
   if(nisRoomCreator == loginDetails.userId){
     loginDetails.isRoomCreator = true
   }
+
+  socket.emit('ack_leave', loginDetails)
 
 })
 
@@ -69,10 +68,20 @@ socket.on('enter_call', async () => {
   console.log('Socket event callback: enter_call')
 
   if (loginDetails.isRoomCreator) {
+    rtcPeerConnection = new RTCPeerConnection();
+
+      let sessionDescription
+      try {
+        sessionDescription = await rtcPeerConnection.createOffer()
+        rtcPeerConnection.setLocalDescription(sessionDescription)
+      } catch (error) {
+        console.error(error)
+      }
 
       console.log('Socket send: offer')
       socket.emit('offer', {
         type: 'offer',
+        sdp: sessionDescription,
         loginDetails: loginDetails,
       })
   }
@@ -83,19 +92,32 @@ socket.on('offer', async (event) => {
   console.log('Socket event callback: offer')
 
   if (!loginDetails.isRoomCreator) {
+    rtcPeerConnection = new RTCPeerConnection()
 
+    let sessionDescription
+    try {
+      rtcPeerConnection.setRemoteDescription(event) //PEGA OS DADOS DO SDP
+      sessionDescription = await rtcPeerConnection.createAnswer() 
+      rtcPeerConnection.setLocalDescription(sessionDescription)
+    } catch (error) {
+      console.error(error)
+    }
 
-    console.log('Socket send: answer')
-    socket.emit('answer', {
-      type: 'answer',
+    //ACEITA A OFERTA
+    console.log('Socket send: ack_offer')
+    socket.emit('ack_offer', {
+      type: 'ack_offer',
+      sdp: sessionDescription,
       loginDetails: loginDetails,
     })
   }
 
 })
 
-socket.on('answer', async (event) => {
-  console.log('Socket event callback: answer')
+socket.on('ack_offer', async (event) => {
+  console.log('Socket event callback: ack_offer')
+  rtcPeerConnection.setRemoteDescription(event)
+  console.log(rtcPeerConnection)
 })
 
 
@@ -113,7 +135,6 @@ function joinRoom(user) {
 
 function leaveinRoom() {
     buttonLogout()
-
     socket.emit('bye', loginDetails)
 }
 
