@@ -1,3 +1,14 @@
+// Free public STUN servers provided by Google.
+const iceServers = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+  ],
+}
+
 // DOM elements.
 //const roomSelectionContainer = document.getElementById('room-selection-container')
 const userInput = document.getElementById('user-input')
@@ -14,7 +25,6 @@ const socket = io()
 
 let localStream
 let localConnection = null;   // RTCPeerConnection for our "local" connection
-let remoteConnection = null;  // RTCPeerConnection for the "remote"
 let sendChannel = null;       // RTCDataChannel for the local (sender)
 let receiveChannel = null;    // RTCDataChannel for the remote (receiver)
 let roomId = "SMU"
@@ -24,13 +34,9 @@ let isRoomCreator
 let loginDetails={roomId, userId, isRoomCreator} 
 
 // BUTTON LISTENER ============================================================
-connectButton.addEventListener('click', () => {
-  joinRoom(userInput.value)
-})
-
-stopconnectButton.addEventListener('click', () => {
-  leaveinRoom()
-})
+connectButton.addEventListener('click', () => { joinRoom(userInput.value) })
+stopconnectButton.addEventListener('click', () => { leaveinRoom() })
+buttonsendText.addEventListener('click', () => { sendMessage() })
 
 // SOCKET EVENT CALLBACKS =====================================================
 socket.on('room_created', async () => {
@@ -67,21 +73,22 @@ socket.on('full_room', () => {
   console.log('Socket event callback: full_room')
   alert('Sala cheia, tente outra hora')
 })
-
-// ============================= OFERTA SDP E CHANNEL ======================================//
-// =========================================================================================//
+//========================================================================================================//
+// ==================================== OFERTA SDP E CHANNEL =============================================//
+// =======================================================================================================//
 
 socket.on('enter_call', async () => {
   console.log('Socket event callback: enter_call')
 
   if (loginDetails.isRoomCreator) {
-    localConnection = new RTCPeerConnection()
-    
-    sendChannel = localConnection.createDataChannel("sendChannel")
-    sendChannel.onopen = handleSendChannelStatusChange()
-    sendChannel.onclose = handleSendChannelStatusChange()
+    localConnection = new RTCPeerConnection(iceServers)
+    localConnection.onicecandidate = sendIceCandidate
 
-    localConnection.ondatachannel = sendChannel //cuidado
+    sendChannel = localConnection.createDataChannel("sendChannel")
+    sendChannel.onopen = handleSendChannelStatusChange
+    sendChannel.onclose = handleSendChannelStatusChange
+
+    localConnection.ondatachannel = receiveChannelCallback
 
       let sessionDescription
       try {
@@ -105,11 +112,15 @@ socket.on('offer', async (event) => {
   console.log('Socket event callback: offer')
 
   if (!loginDetails.isRoomCreator) {
-    localConnection = new RTCPeerConnection()
-    localConnection.setRemoteDescription(new RTCSessionDescription(event))
+    localConnection = new RTCPeerConnection(iceServers)
+    localConnection.onicecandidate = sendIceCandidate
+    localConnection.setRemoteDescription(new RTCSessionDescription(event.sdp))
 
-    console.log(event)
-    localConnection.ondatachannel = receiveChannelCallback(event)
+    sendChannel = localConnection.createDataChannel("sendChannel")
+    sendChannel.onopen = handleSendChannelStatusChange
+    sendChannel.onclose = handleSendChannelStatusChange
+
+    localConnection.ondatachannel = receiveChannelCallback
 
     let sessionDescription
     try {
@@ -134,13 +145,22 @@ socket.on('offer', async (event) => {
 socket.on('ack_offer', async (event) => {
   console.log('Socket event callback: ack_offer')
   //localConnection.setRemoteDescription(event)
-  localConnection.setRemoteDescription(new RTCSessionDescription(event))
-  console.log(localConnection)
+  localConnection.setRemoteDescription(new RTCSessionDescription(event.sdp))
 })
 
+socket.on('ice_candidate', (event) => {
+  console.log('Socket event callback: ice_candidate')
+  // ICE candidate configuration.
+  var candidate = new RTCIceCandidate({
+    sdpMLineIndex: event.label,
+    candidate: event.candidate,
+  })
+  localConnection.addIceCandidate(candidate)
+})
 
-// ================================= FUNCTIONS =============================================//
-// =========================================================================================//
+//========================================================================================================//
+// ========================================= FUNCTIONS ===================================================//
+//========================================================================================================//
 
 function joinRoom(user) {
   if (user === '') {
@@ -158,31 +178,68 @@ function leaveinRoom() {
     socket.emit('bye', loginDetails)
 }
 
-// FUNCOES PARA GERENCIAMENTO DOS BOTÕES 
+function sendIceCandidate(event) {
+  if (event.candidate) {
+    socket.emit('ice_candidate', {
+      roomId: loginDetails.roomId,
+      label: event.candidate.sdpMLineIndex,
+      candidate: event.candidate.candidate,
+    })
+  }
+}
+//========================================================================================================//
+//=============================== FUNCOES PARA GERENCIAMENTO DOS BOTÕES ==================================//
+//========================================================================================================//
 function buttonLogin(){
   userInput.disabled = true //Desabilita o texto
   connectButton.disabled = true //Desabilita o botão de Entrar
   stopconnectButton.disabled = false  //Habilita o botão de Sair
 }
 
-function buttonLogout(){
+function buttonLogout() {
+  // Close the RTCDataChannels if they're open.
+  sendChannel.close();
+  receiveChannel.close();
+
+  // Close the RTCPeerConnections
+  localConnection.close();
+
+  sendChannel = null;
+  receiveChannel = null;
+  localConnection = null;
+
+  // Update user interface elements
   userInput.disabled = false //Habilita o texto
-  connectButton.disabled = false //Habilita o botão de Entrar
-  stopconnectButton.disabled = true //Desabilita o botão de Sair
+  connectButton.disabled = false;
+  stopconnectButton.disabled = true;
+  buttonsendText.disabled = true;
+
+  localText.value = "";
+  localText.disabled = true;
 }
 
-//=========================== FUNCOES DO DATA CHANNEL ======================================//
-// =========================================================================================//
+//========================================================================================================//
+//===================================== FUNCOES DO DATA CHANNEL ==========================================//
+// =======================================================================================================//
 
-function sendMessage() {
-  var message = localText.value;
-  sendChannel.send(message);
+function sendMessage() { 
+  var a = loginDetails.userId
+  var b = ": "
+  var c = a.concat(b)
+  var d = localText.value//COLOCAR O USER ID NA MESSAGEM
+  var e = c.concat(d)
+  var f = '\n'
+  var message = f.concat(e)
+  
+  sendChannel.send(message)
   
   // Clear the input box and re-focus it, so that we're
   // ready for the next message.
-  
-  localText.value = "";
-  localText.focus();
+  localText.value = ""
+  localText.focus()
+  var txt=document.createTextNode(message)
+  chat.appendChild(txt)
+
 }
 
 // Handle status changes on the local end of the data
@@ -192,7 +249,6 @@ function sendMessage() {
 function handleSendChannelStatusChange(event) {
   if (sendChannel) {
     var state = sendChannel.readyState;
-    console.log(state)
     if (state === "open") {
       localText.disabled = false;
       localText.focus();
@@ -206,10 +262,9 @@ function handleSendChannelStatusChange(event) {
 
 // Called when the connection opens and the data
 // channel is ready to be connected to the remote.
-
 function receiveChannelCallback(event) {
   receiveChannel = event.channel
-  receiveChannel.onmessage = handleReceiveMessage(event)
+  receiveChannel.onmessage = handleReceiveMessage
   receiveChannel.onopen = handleReceiveChannelStatusChange
   receiveChannel.onclose = handleReceiveChannelStatusChange
 }
@@ -218,21 +273,21 @@ function receiveChannelCallback(event) {
 // These are the data messages sent by the sending channel.
 
 function handleReceiveMessage(event) {
-  var el = document.createElement("p");
-  var txtNode = document.createTextNode(event.data);
-  
-  el.appendChild(txtNode);
-  chat.appendChild(el);
+  var linebreak = document.createElement('br')
+  var txt=document.createTextNode(event.data)
+  chat.appendChild(linebreak)
+  chat.appendChild(txt)
+
+  console.log(event)
+
 }
 
 // Handle status changes on the receiver's channel.
-
 function handleReceiveChannelStatusChange(event) {
   if (receiveChannel) {
-    console.log("Receive channel's status has changed to " +
-                receiveChannel.readyState);
+    console.log("Receive channel's status has changed to " + receiveChannel.readyState)
   }
-  
+
   // Here you would do stuff that needs to be done
   // when the channel's status changes.
 }
