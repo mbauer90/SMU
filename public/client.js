@@ -5,14 +5,18 @@ const connectButton = document.getElementById('connect-button')
 const stopconnectButton = document.getElementById('stopconnect-button')
 
 // Chat box
-const inputMessage = document.getElementById('inputmessage')
-const sendmessageButton = document.getElementById('sendmessage-button')
+const chat = document.getElementById('chat')
+const localText = document.getElementById('localText')
+const buttonsendText = document.getElementById('buttonsendText')
 
 // Variables.
 const socket = io()
 
 let localStream
-let rtcPeerConnection // Connection between the local device and the remote peer.
+let localConnection = null;   // RTCPeerConnection for our "local" connection
+let remoteConnection = null;  // RTCPeerConnection for the "remote"
+let sendChannel = null;       // RTCDataChannel for the local (sender)
+let receiveChannel = null;    // RTCDataChannel for the remote (receiver)
 let roomId = "SMU"
 let userId
 let isRoomCreator
@@ -64,16 +68,25 @@ socket.on('full_room', () => {
   alert('Sala cheia, tente outra hora')
 })
 
+// ============================= OFERTA SDP E CHANNEL ======================================//
+// =========================================================================================//
+
 socket.on('enter_call', async () => {
   console.log('Socket event callback: enter_call')
 
   if (loginDetails.isRoomCreator) {
-    rtcPeerConnection = new RTCPeerConnection();
+    localConnection = new RTCPeerConnection()
+    
+    sendChannel = localConnection.createDataChannel("sendChannel")
+    sendChannel.onopen = handleSendChannelStatusChange()
+    sendChannel.onclose = handleSendChannelStatusChange()
+
+    localConnection.ondatachannel = sendChannel //cuidado
 
       let sessionDescription
       try {
-        sessionDescription = await rtcPeerConnection.createOffer()
-        rtcPeerConnection.setLocalDescription(sessionDescription)
+        sessionDescription = await localConnection.createOffer()
+        localConnection.setLocalDescription(sessionDescription)
       } catch (error) {
         console.error(error)
       }
@@ -92,13 +105,17 @@ socket.on('offer', async (event) => {
   console.log('Socket event callback: offer')
 
   if (!loginDetails.isRoomCreator) {
-    rtcPeerConnection = new RTCPeerConnection()
+    localConnection = new RTCPeerConnection()
+    localConnection.setRemoteDescription(new RTCSessionDescription(event))
+
+    console.log(event)
+    localConnection.ondatachannel = receiveChannelCallback(event)
 
     let sessionDescription
     try {
-      rtcPeerConnection.setRemoteDescription(event) //PEGA OS DADOS DO SDP
-      sessionDescription = await rtcPeerConnection.createAnswer() 
-      rtcPeerConnection.setLocalDescription(sessionDescription)
+      //localConnection.setRemoteDescription(event) //PEGA OS DADOS DO SDP
+      sessionDescription = await localConnection.createAnswer() 
+      localConnection.setLocalDescription(sessionDescription)
     } catch (error) {
       console.error(error)
     }
@@ -116,12 +133,15 @@ socket.on('offer', async (event) => {
 
 socket.on('ack_offer', async (event) => {
   console.log('Socket event callback: ack_offer')
-  rtcPeerConnection.setRemoteDescription(event)
-  console.log(rtcPeerConnection)
+  //localConnection.setRemoteDescription(event)
+  localConnection.setRemoteDescription(new RTCSessionDescription(event))
+  console.log(localConnection)
 })
 
 
-// =========================FUNCTIONS =============================================
+// ================================= FUNCTIONS =============================================//
+// =========================================================================================//
+
 function joinRoom(user) {
   if (user === '') {
     alert('Informe o nome do usuario')
@@ -143,14 +163,76 @@ function buttonLogin(){
   userInput.disabled = true //Desabilita o texto
   connectButton.disabled = true //Desabilita o botão de Entrar
   stopconnectButton.disabled = false  //Habilita o botão de Sair
-  inputMessage.disabled = false
-  sendmessageButton.disabled = false
 }
 
 function buttonLogout(){
   userInput.disabled = false //Habilita o texto
   connectButton.disabled = false //Habilita o botão de Entrar
   stopconnectButton.disabled = true //Desabilita o botão de Sair
-  inputMessage.disabled = true
-  sendmessageButton.disabled = true
+}
+
+//=========================== FUNCOES DO DATA CHANNEL ======================================//
+// =========================================================================================//
+
+function sendMessage() {
+  var message = localText.value;
+  sendChannel.send(message);
+  
+  // Clear the input box and re-focus it, so that we're
+  // ready for the next message.
+  
+  localText.value = "";
+  localText.focus();
+}
+
+// Handle status changes on the local end of the data
+// channel; this is the end doing the sending of data
+// in this example.
+
+function handleSendChannelStatusChange(event) {
+  if (sendChannel) {
+    var state = sendChannel.readyState;
+    console.log(state)
+    if (state === "open") {
+      localText.disabled = false;
+      localText.focus();
+      buttonsendText.disabled = false;
+    } else {
+      localText.disabled = true;
+      buttonsendText.disabled = true;
+    }
+  }
+}
+
+// Called when the connection opens and the data
+// channel is ready to be connected to the remote.
+
+function receiveChannelCallback(event) {
+  receiveChannel = event.channel
+  receiveChannel.onmessage = handleReceiveMessage(event)
+  receiveChannel.onopen = handleReceiveChannelStatusChange
+  receiveChannel.onclose = handleReceiveChannelStatusChange
+}
+
+// Handle onmessage events for the receiving channel.
+// These are the data messages sent by the sending channel.
+
+function handleReceiveMessage(event) {
+  var el = document.createElement("p");
+  var txtNode = document.createTextNode(event.data);
+  
+  el.appendChild(txtNode);
+  chat.appendChild(el);
+}
+
+// Handle status changes on the receiver's channel.
+
+function handleReceiveChannelStatusChange(event) {
+  if (receiveChannel) {
+    console.log("Receive channel's status has changed to " +
+                receiveChannel.readyState);
+  }
+  
+  // Here you would do stuff that needs to be done
+  // when the channel's status changes.
 }
