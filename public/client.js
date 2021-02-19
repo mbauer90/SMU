@@ -199,11 +199,11 @@ function buttonLogin(){
 
 function buttonLogout() {
   // Close the RTCDataChannels if they're open.
-  sendChannel.close()
-  receiveChannel.close()
+  if(sendChannel) { sendChannel.close() }
+  if(receiveChannel) { receiveChannel.close() }
 
   // Close the RTCPeerConnections
-  localConnection.close()
+  if(localConnection) { localConnection.close() }
 
   sendChannel = null
   receiveChannel = null
@@ -218,7 +218,8 @@ function buttonLogout() {
   localText.value = ""
   localText.disabled = true
   chat.innerHTML = ""
-  displayGame.style.display= "none"
+  //displayGame.style.display= "none"
+  stopGame()
 }
 
 //========================================================================================================//
@@ -239,7 +240,8 @@ function handleSendChannelStatusChange(event) {
     } else {
       localText.disabled = true
       buttonsendText.disabled = true
-      displayGame.style.display= "none" //DESAPARECE O div DO JOGO 
+      //displayGame.style.display= "none" //DESAPARECE O div DO JOGO 
+      stopGame()
     }
   }
 }
@@ -261,7 +263,7 @@ function receiveChannelCallback(event) {
   receiveChannel.onmessage = handleReceiveMessage
   receiveChannel.onopen = handleReceiveChannelStatusChange
   receiveChannel.onclose = handleReceiveChannelStatusChange
-  sendBeginGame()
+  sendBeginGame() //apos criacao do canal inicia o jogo
 }
 
 //================================ ENVIO E RECEPCAO NO DATA CHANNEL ======================================//
@@ -303,15 +305,16 @@ function handleReceiveMessage(event) {
     chat.appendChild(linebreak)
     chat.appendChild(txt)
   } else if (msg.type === 'game_status'){
-    //updateStatusPong(msg); // in pong file
+    updateStatusPong(msg) // in pong file
   } else if (msg.type === 'begin_game') {
     //HisNumber = msg.number
-    //checkMasterPong()
+    checkMasterPong()
   } else if (msg.type === 'GO!') {
     //window.pongStarted = true
-    //newIntervalGo(10)
+    newIntervalGo(10) //contagem para lancar a bola inicial
   } else if (msg.type === 'update_score') {
-    //updateScore(msg)
+    console.log('Recebeu uma atualizacao no placar')
+    updateScore(msg)  //atualiza o placar
   } else {
     console.error("Tipo nao definido", msg.type)
   }
@@ -320,7 +323,6 @@ function handleReceiveMessage(event) {
 
 //================================ CONTROLE GAME =========================================================//
 //========================================================================================================//
-
 function sendBeginGame() {
   sendChannel.send(JSON.stringify({ 'type': 'begin_game'}))
   console.log('SendBeginGame')
@@ -328,8 +330,6 @@ function sendBeginGame() {
 }
 
 function checkMasterPong() {
+  console.log('checkMasterPong')
   sendChannel.send(JSON.stringify({ 'type': 'GO!'}))
-          //window.masterPong = false;
-          //window.pongStarted = true;
-          //newIntervalGo(10); 
 }

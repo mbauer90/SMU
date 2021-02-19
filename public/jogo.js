@@ -1,3 +1,9 @@
+goInterval = null;
+
+masterPong = false;
+pongRunning = false;
+pongStarted = false;
+
 var config = {
     type: Phaser.AUTO,
     width: 600,
@@ -27,11 +33,9 @@ var ball_launched;
 var ball_vel;
 var comandoTeclado;
 
-var score1_text;
-var score2_text;
-
-var score1;
-var score2;
+var score=0;
+var TimeA = {score};
+var TimeB = {score};
 
 function preload ()
 {
@@ -54,25 +58,18 @@ function create ()
     paddle1 = createPaddle(0,game.config.height/2,this);
     paddle2 = createPaddle(game.config.width,game.config.height/2,this);
 
-
     // CRIA A BOLA DO JOGO
     ball = createBall(game.config.width/2,game.config.height/2,this);
 
     // LANÇA A BOLA ASSIM QUE O TECLADO É PRESSIONADO;
     //this.input.keyboard.on('keydown_W', launchBall, this);
 
-    // GERA O PLACAR
-    score1_text = this.add.bitmapText(game.config.width/4,50,'font','0',60);
-    score2_text = this.add.bitmapText(game.config.width/2+game.config.width/4,50,'font','0',60);
-
-    score1 = 0;
-    score2 = 0;
+    TimeA.score = 0;
+    TimeB.score = 0;
 }
 
 function update ()
 {
-    score1_text.text = score1;
-    score2_text.text = score2;
     
     //  Input Events
     comandoTeclado = this.input.keyboard.createCursorKeys();
@@ -83,19 +80,17 @@ function update ()
     this.physics.add.collider(paddle2, ball);
 
     if(ball.body.blocked.left){
-    
         console.log('Time 2 Marcou!');
-        score2+=1;
-    
+        newPoint(TimeB);
+        sendNewScore();
     } else if(ball.body.blocked.right){
-    
         console.log('Time 1 Marcou!');
-        score1+=1;
-
+        newPoint(TimeA);
+        sendNewScore();
     }
 
-    //VERIFICA SE REALIZOU 10 PONTOS E FINALIZA O JOGO
-    if(score1_text.text==5 || score2_text.text==5){
+    //VERIFICA SE REALIZOU 5 PONTOS E FINALIZA O JOGO
+    if(TimeA_text.text==5 || TimeB_text.text==5){
         gameOver = true;
         //this.add.bitmapText(150, 400, 'font', 'Fim de Jogo', 64);
         this.add.bitmapText(game.config.height/4, game.config.width/2, 'font', 'Fim de Jogo', 50);
@@ -106,14 +101,6 @@ function update ()
         console.log('GAME OVER');
         this.scene.pause();
         console.log('GAME OVER1');
-        //this.input.keyboard.once('keydown_ESC', function () {
-        //    global_pause('default'); //will be unpaused in game.html
-        //});
-        //sleep(5000);
-
-        //this.scene.restart();
-        //this.input.keyboard.on('keydown_W', () => this.scene.restart()); 
-       // return;
     }
 
     // REALIZANDO O SEGUNDO JOGADOR IA
@@ -123,6 +110,32 @@ function update ()
  
 }
 
+function sendNewScore (){
+    var objToSend = {
+        'type': 'update_score',
+        'content': {'you': TimeB.score, 'me': TimeA.score}
+    }
+    sendChannel.send(JSON.stringify(objToSend));
+}
+
+function updateScore(msg) {
+    pongRunning = false;
+    if (msg.content.you > TimeA.score){
+       newPoint(TimeA);
+    }else if (msg.content.me > TimeB.score){
+       newPoint(TimeB);
+    }
+}
+
+function newPoint(player) {
+    masterPong = !masterPong;
+    newIntervalGo(3);
+    //player scores
+    player.score += 1;
+    $('#localScore').html(TimeA.score);
+    $('#remoteScore').html(TimeB.score);
+    resetPosBall();
+}
 //----------------- FUNCOES EXTRAS -------------------------/
 
 function createPaddle (x,y,t){
@@ -174,4 +187,68 @@ function launchBall(){
         ball.body.velocity.y = ball_vel;
         ball_launched = true;
     }
+}
+
+function resetPosBall() {
+    ball.x = game.config.width/2;
+    ball.y = game.config.height/2;
+    ball.body.velocity.setTo(0,0);
+    ball_launched = false;
+}
+
+//========================================================================================================//
+//================================FUNCOES NOVAS PARA CONTROLE DO GAME=====================================//
+//========================================================================================================//
+
+
+
+
+function updateStatusPong(msg) {
+    /*if (!masterPong && msg.disk){
+        disk.posX = -msg.disk.x;
+        disk.posY = msg.disk.y;
+        if (Math.abs(disk.posX) === 5.40000000001)
+            iluminateDisk();
+    }
+    playerB.posY = msg.player.y;
+    playerB.color = msg.player.color;
+    */
+}
+
+function newIntervalGo(timeLeft) {
+    if (goInterval) clearInterval(goInterval);
+    goInterval = setInterval(function () {
+        if (timeLeft > 0){
+            $('#displayTime').html(timeLeft);
+        } else {
+            clearInterval(goInterval);
+            goInterval = null;
+            $('#displayTime').html('GO!');
+            launchBall()
+            if (pongStarted)
+                pongRunning = true;
+        }
+        timeLeft--;
+    }, 500);
+}
+
+function stopGame() {
+    console.log('Stop Game')
+
+    masterPong = false;
+    pongRunning = false;
+    pongStarted = false;
+
+    TimeA.score = 0;
+    TimeB.score = 0;
+
+    paddle2.x = game.config.width;
+    paddle2.y = game.config.height/2;
+    
+    clearInterval(goInterval);
+    $('#displayTime').html('Wait');
+    $('#localScore').html('0');
+    $('#remoteScore').html('0');
+
+    resetPosBall()
 }

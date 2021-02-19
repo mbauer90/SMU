@@ -31,9 +31,14 @@
 
 <div class="container">
 
-    <!-- <div class="header"> TESTE </div> -->
-    <div class="game" id="game" name="game" style="display: none"></div>
-    <div class="pong" id="pong" name="pong"></div>
+    <div class="col-xs-12 col-md-4 col-md-push-4">
+        <label for="comment">Tempo:</label>
+        <h2 id="score"><span id="localScore">0</span> - <span id="remoteScore">0</span></h2>
+        <h2 id="displayTime" name="displayTime">Wait</h2>
+    </div>
+
+    <!-- <div class="game" id="game" name="game" style="display: none"></div> -->
+    <div class="game" id="game" name="game"></div>
 
     <div id="footer">
         <div class="inline-div">
@@ -49,6 +54,7 @@
 
 </div>
 
+<script src="https://code.jquery.com/jquery-1.12.3.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script type="text/javascript" src="client.js"></script>
 
