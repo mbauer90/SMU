@@ -198,24 +198,26 @@ function buttonLogin(){
 
 function buttonLogout() {
   // Close the RTCDataChannels if they're open.
-  sendChannel.close();
-  receiveChannel.close();
+  sendChannel.close()
+  receiveChannel.close()
 
   // Close the RTCPeerConnections
-  localConnection.close();
+  localConnection.close()
 
-  sendChannel = null;
-  receiveChannel = null;
-  localConnection = null;
+  sendChannel = null
+  receiveChannel = null
+  localConnection = null
 
   // Update user interface elements
   userInput.disabled = false //Habilita o texto
-  connectButton.disabled = false;
-  stopconnectButton.disabled = true;
-  buttonsendText.disabled = true;
+  connectButton.disabled = false
+  stopconnectButton.disabled = true
+  buttonsendText.disabled = true
 
-  localText.value = "";
-  localText.disabled = true;
+  localText.value = ""
+  localText.disabled = true
+
+  chat.innerHTML = ""
 }
 
 //========================================================================================================//
@@ -226,7 +228,7 @@ function sendMessage() {
   var a = loginDetails.userId
   var b = ": "
   var c = a.concat(b)
-  var d = localText.value//COLOCAR O USER ID NA MESSAGEM
+  var d = localText.value//COLOCA O USER ID NA MESSAGEM
   var e = c.concat(d)
   var f = '\n'
   var message = f.concat(e)
@@ -239,7 +241,6 @@ function sendMessage() {
   localText.focus()
   var txt=document.createTextNode(message)
   chat.appendChild(txt)
-
 }
 
 // Handle status changes on the local end of the data
@@ -248,14 +249,14 @@ function sendMessage() {
 
 function handleSendChannelStatusChange(event) {
   if (sendChannel) {
-    var state = sendChannel.readyState;
+    var state = sendChannel.readyState
     if (state === "open") {
-      localText.disabled = false;
-      localText.focus();
-      buttonsendText.disabled = false;
+      localText.disabled = false
+      localText.focus()
+      buttonsendText.disabled = false
     } else {
-      localText.disabled = true;
-      buttonsendText.disabled = true;
+      localText.disabled = true
+      buttonsendText.disabled = true
     }
   }
 }
@@ -277,9 +278,6 @@ function handleReceiveMessage(event) {
   var txt=document.createTextNode(event.data)
   chat.appendChild(linebreak)
   chat.appendChild(txt)
-
-  console.log(event)
-
 }
 
 // Handle status changes on the receiver's channel.
