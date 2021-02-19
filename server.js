@@ -74,13 +74,14 @@ io.on('connection', (socket) => {
   
     socket.on('offer', (event) => {
       console.log(`Broadcast offer na sala ${event.loginDetails.roomId}`)
-      socket.broadcast.to(event.loginDetails.roomId).emit('offer', event.sdp)
+      socket.broadcast.to(event.loginDetails.roomId).emit('offer', event)
+      //socket.broadcast.to(event.loginDetails.roomId).emit('offer', event.sdp)
     })
 
     socket.on('ack_offer', (event) => {
       console.log(`Broadcast ack_offer na sala ${event.loginDetails.roomId}`)
-      //console.log(JSON.stringify(event))
-      socket.broadcast.to(event.loginDetails.roomId).emit('ack_offer', event.sdp)
+      socket.broadcast.to(event.loginDetails.roomId).emit('ack_offer', event)
+      //socket.broadcast.to(event.loginDetails.roomId).emit('ack_offer', event.sdp)
     })
 
     socket.on('ice_candidate', (event) => {
