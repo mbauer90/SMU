@@ -14,6 +14,7 @@ const iceServers = {
 const userInput = document.getElementById('user-input')
 const connectButton = document.getElementById('connect-button')
 const stopconnectButton = document.getElementById('stopconnect-button')
+const displayGame = document.getElementById('game')
 
 // Chat box
 const chat = document.getElementById('chat')
@@ -188,7 +189,7 @@ function sendIceCandidate(event) {
   }
 }
 //========================================================================================================//
-//=============================== FUNCOES PARA GERENCIAMENTO DOS BOTÕES ==================================//
+//====================== GERENCIAMENTO DOS BOTÕES E INPUTS ===============================================//
 //========================================================================================================//
 function buttonLogin(){
   userInput.disabled = true //Desabilita o texto
@@ -216,37 +217,17 @@ function buttonLogout() {
 
   localText.value = ""
   localText.disabled = true
-
   chat.innerHTML = ""
+  displayGame.style.display= "none"
 }
 
 //========================================================================================================//
 //===================================== FUNCOES DO DATA CHANNEL ==========================================//
 // =======================================================================================================//
 
-function sendMessage() { 
-  var a = loginDetails.userId
-  var b = ": "
-  var c = a.concat(b)
-  var d = localText.value//COLOCA O USER ID NA MESSAGEM
-  var e = c.concat(d)
-  var f = '\n'
-  var message = f.concat(e)
-  
-  sendChannel.send(message)
-  
-  // Clear the input box and re-focus it, so that we're
-  // ready for the next message.
-  localText.value = ""
-  localText.focus()
-  var txt=document.createTextNode(message)
-  chat.appendChild(txt)
-}
-
 // Handle status changes on the local end of the data
 // channel; this is the end doing the sending of data
 // in this example.
-
 function handleSendChannelStatusChange(event) {
   if (sendChannel) {
     var state = sendChannel.readyState
@@ -254,30 +235,13 @@ function handleSendChannelStatusChange(event) {
       localText.disabled = false
       localText.focus()
       buttonsendText.disabled = false
+      displayGame.style.display= "block" //APARECE O div DO JOGO 
     } else {
       localText.disabled = true
       buttonsendText.disabled = true
+      displayGame.style.display= "none" //DESAPARECE O div DO JOGO 
     }
   }
-}
-
-// Called when the connection opens and the data
-// channel is ready to be connected to the remote.
-function receiveChannelCallback(event) {
-  receiveChannel = event.channel
-  receiveChannel.onmessage = handleReceiveMessage
-  receiveChannel.onopen = handleReceiveChannelStatusChange
-  receiveChannel.onclose = handleReceiveChannelStatusChange
-}
-
-// Handle onmessage events for the receiving channel.
-// These are the data messages sent by the sending channel.
-
-function handleReceiveMessage(event) {
-  var linebreak = document.createElement('br')
-  var txt=document.createTextNode(event.data)
-  chat.appendChild(linebreak)
-  chat.appendChild(txt)
 }
 
 // Handle status changes on the receiver's channel.
@@ -288,4 +252,84 @@ function handleReceiveChannelStatusChange(event) {
 
   // Here you would do stuff that needs to be done
   // when the channel's status changes.
+}
+
+// Called when the connection opens and the data
+// channel is ready to be connected to the remote.
+function receiveChannelCallback(event) {
+  receiveChannel = event.channel
+  receiveChannel.onmessage = handleReceiveMessage
+  receiveChannel.onopen = handleReceiveChannelStatusChange
+  receiveChannel.onclose = handleReceiveChannelStatusChange
+  sendBeginGame()
+}
+
+//================================ ENVIO E RECEPCAO NO DATA CHANNEL ======================================//
+//========================================================================================================//
+
+function sendMessage() { 
+  if(localText.value != ""){
+      var a = loginDetails.userId
+      var b = ": "
+      var c = a.concat(b)
+      var d = localText.value//COLOCA O USER ID NA MESSAGEM
+      var e = c.concat(d)
+      var f = '\n'
+      var message = f.concat(e)
+      sendChannel.send(JSON.stringify({
+        'type': 'chat_message',
+        'content': message
+      }));
+      
+      // Clear the input box and re-focus it, so that we're
+      // ready for the next message.
+      localText.value = ""
+      localText.focus()
+      var txt=document.createTextNode(message)
+      chat.appendChild(txt)
+  }
+}
+
+// Handle onmessage events for the receiving channel.
+// These are the data messages sent by the sending channel.
+function handleReceiveMessage(event) {
+  var msg = JSON.parse(event.data)
+
+  console.log(msg.type)
+
+  if (msg.type === 'chat_message') {
+    var linebreak = document.createElement('br')
+    var txt=document.createTextNode(msg.content)
+    chat.appendChild(linebreak)
+    chat.appendChild(txt)
+  } else if (msg.type === 'game_status'){
+    //updateStatusPong(msg); // in pong file
+  } else if (msg.type === 'begin_game') {
+    //HisNumber = msg.number
+    //checkMasterPong()
+  } else if (msg.type === 'GO!') {
+    //window.pongStarted = true
+    //newIntervalGo(10)
+  } else if (msg.type === 'update_score') {
+    //updateScore(msg)
+  } else {
+    console.error("Tipo nao definido", msg.type)
+  }
+  
+}
+
+//================================ CONTROLE GAME =========================================================//
+//========================================================================================================//
+
+function sendBeginGame() {
+  sendChannel.send(JSON.stringify({ 'type': 'begin_game'}))
+  console.log('SendBeginGame')
+  checkMasterPong()
+}
+
+function checkMasterPong() {
+  sendChannel.send(JSON.stringify({ 'type': 'GO!'}))
+          //window.masterPong = false;
+          //window.pongStarted = true;
+          //newIntervalGo(10); 
 }

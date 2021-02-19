@@ -59,7 +59,7 @@ function create ()
     ball = createBall(game.config.width/2,game.config.height/2,this);
 
     // LANÇA A BOLA ASSIM QUE O TECLADO É PRESSIONADO;
-    this.input.keyboard.on('keydown_W', launchBall, this); 
+    //this.input.keyboard.on('keydown_W', launchBall, this);
 
     // GERA O PLACAR
     score1_text = this.add.bitmapText(game.config.width/4,50,'font','0',60);
