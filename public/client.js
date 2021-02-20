@@ -250,6 +250,10 @@ function handleSendChannelStatusChange(event) {
 function handleReceiveChannelStatusChange(event) {
   if (receiveChannel) {
     console.log("Receive channel's status has changed to " + receiveChannel.readyState)
+
+    if(receiveChannel.readyState === "open"){
+      sendBeginGame() //apos criacao do canal inicia o jogo
+    }
   }
 
   // Here you would do stuff that needs to be done
@@ -263,7 +267,6 @@ function receiveChannelCallback(event) {
   receiveChannel.onmessage = handleReceiveMessage
   receiveChannel.onopen = handleReceiveChannelStatusChange
   receiveChannel.onclose = handleReceiveChannelStatusChange
-  sendBeginGame() //apos criacao do canal inicia o jogo
 }
 
 //================================ ENVIO E RECEPCAO NO DATA CHANNEL ======================================//
@@ -297,26 +300,23 @@ function sendMessage() {
 function handleReceiveMessage(event) {
   var msg = JSON.parse(event.data)
 
-  console.log(msg.type)
+  //console.log(msg.type)
 
-  if (msg.type === 'chat_message') {
-    var linebreak = document.createElement('br')
-    var txt=document.createTextNode(msg.content)
-    chat.appendChild(linebreak)
-    chat.appendChild(txt)
-  } else if (msg.type === 'game_status'){
-    console.log('Recebeu uma atualizacao de game status')
-    updatePosPong(msg) // atualiza posicao da bola e palhetas
-  } else if (msg.type === 'begin_game') {
-    checkMasterPong() //envia msg type GO para iniciar a contagem para lancar a bola inicial
-  } else if (msg.type === 'GO!') {
-    pongStarted = true  //variavel pong
-    newIntervalGo(5) //contagem para lancar a bola inicial
-  } else if (msg.type === 'update_score') {
-    updateScore(msg)  //atualiza o placar
-  } else {
-    console.error("Tipo nao definido", msg.type)
-  }
+    if (msg.type === 'chat_message') {
+      var linebreak = document.createElement('br')
+      var txt=document.createTextNode(msg.content)
+      chat.appendChild(linebreak)
+      chat.appendChild(txt)
+    } else if (msg.type === 'game_status'){
+      updatePosPong(msg) // atualiza posicao da bola e palhetas
+    } else if (msg.type === 'begin_game') {
+      pongStarted = true;
+      newIntervalGo(5);
+    } else if (msg.type === 'update_score') {
+      updateScore(msg)  //atualiza o placar
+    } else {
+      console.error("Tipo nao definido", msg.type)
+    }
   
 }
 
@@ -324,13 +324,15 @@ function handleReceiveMessage(event) {
 //========================================================================================================//
 function sendBeginGame() {
   sendChannel.send(JSON.stringify({ 'type': 'begin_game'}))
-  console.log('SendBeginGame')
-  checkMasterPong()
+  pongStarted = true
+  checkMaster()
+  //newIntervalGo(5)
 }
 
-function checkMasterPong() {
-  console.log('checkMasterPong')
-  sendChannel.send(JSON.stringify({ 'type': 'GO!'}))
-  //masterPong = false
-  pongStarted = true
+function checkMaster(){ //funcao para verificar o dono da sala, usado para espelhar a bola no jogo.js
+  if(loginDetails.isRoomCreator){
+    masterPong = true
+  } else{
+    masterPong = false
+  }
 }
