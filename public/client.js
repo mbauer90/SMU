@@ -305,15 +305,14 @@ function handleReceiveMessage(event) {
     chat.appendChild(linebreak)
     chat.appendChild(txt)
   } else if (msg.type === 'game_status'){
-    updateStatusPong(msg) // in pong file
+    console.log('Recebeu uma atualizacao de game status')
+    updatePosPong(msg) // atualiza posicao da bola e palhetas
   } else if (msg.type === 'begin_game') {
-    //HisNumber = msg.number
-    checkMasterPong()
+    checkMasterPong() //envia msg type GO para iniciar a contagem para lancar a bola inicial
   } else if (msg.type === 'GO!') {
-    //window.pongStarted = true
-    newIntervalGo(10) //contagem para lancar a bola inicial
+    pongStarted = true  //variavel pong
+    newIntervalGo(5) //contagem para lancar a bola inicial
   } else if (msg.type === 'update_score') {
-    console.log('Recebeu uma atualizacao no placar')
     updateScore(msg)  //atualiza o placar
   } else {
     console.error("Tipo nao definido", msg.type)
@@ -332,4 +331,6 @@ function sendBeginGame() {
 function checkMasterPong() {
   console.log('checkMasterPong')
   sendChannel.send(JSON.stringify({ 'type': 'GO!'}))
+  //masterPong = false
+  pongStarted = true
 }

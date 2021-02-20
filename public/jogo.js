@@ -90,32 +90,32 @@ function update ()
     }
 
     //VERIFICA SE REALIZOU 5 PONTOS E FINALIZA O JOGO
-    if(TimeA_text.text==5 || TimeB_text.text==5){
+    if(TimeA.score==5 || TimeB.score==5){
         gameOver = true;
-        //this.add.bitmapText(150, 400, 'font', 'Fim de Jogo', 64);
-        this.add.bitmapText(game.config.height/4, game.config.width/2, 'font', 'Fim de Jogo', 50);
-        console.log('Foi para o Gameover');
     }
 
     if(gameOver){
         console.log('GAME OVER');
         this.scene.pause();
-        console.log('GAME OVER1');
+        
+        var timeVencedor = "Fim da partida";
+        $('#displayResultado').html(timeVencedor);
+        document.getElementById('displayResultado').style.display = 'block';
+    }
+
+    if (pongStarted){
+        //if (masterPong){
+            sendGameStatus();
+        //} else {
+            sendPlayerPosition();
+        //}
     }
 
     // REALIZANDO O SEGUNDO JOGADOR IA
-    paddle2.body.velocity.setTo(ball.body.velocity.y);
-    paddle2.body.velocity.x = 0;
-    paddle2.body.maxVelocity.y = 250;
+    //paddle2.body.velocity.setTo(ball.body.velocity.y);
+    //paddle2.body.velocity.x = 0;
+    //paddle2.body.maxVelocity.y = 250;
  
-}
-
-function sendNewScore (){
-    var objToSend = {
-        'type': 'update_score',
-        'content': {'you': TimeB.score, 'me': TimeA.score}
-    }
-    sendChannel.send(JSON.stringify(objToSend));
 }
 
 function updateScore(msg) {
@@ -177,7 +177,6 @@ function launchBall(){
     if(ball_launched){
         //ball.x = game.centerX;
         //ball.y = game.centerY;
-        //console.log("story", game.config.width, "story");
         ball.x = game.config.width/2;
         ball.y = game.config.height/2;
         ball.body.velocity.setTo(0,0);
@@ -197,22 +196,44 @@ function resetPosBall() {
 }
 
 //========================================================================================================//
+//=============================== MENSAGENS PARA O DATACHANNEL ===========================================//
+//========================================================================================================//
+
+function sendNewScore (){
+    var objToSend = {
+        'type': 'update_score',
+        'content': {'you': TimeB.score, 'me': TimeA.score}
+    }
+    sendChannel.send(JSON.stringify(objToSend));
+}
+
+function sendGameStatus() {
+    var objToSend = {
+        'type': 'game_status',
+        'ball': {'x': ball.x, 'y': ball.y},
+        'player': {'y': paddle1.y},
+    }
+    sendChannel.send(JSON.stringify(objToSend));
+}
+
+function sendPlayerPosition() {
+    var objToSend = {
+        'type': 'game_status',
+        'player': {'y': paddle1.y}
+    }
+    sendChannel.send(JSON.stringify(objToSend));
+}
+
+//========================================================================================================//
 //================================FUNCOES NOVAS PARA CONTROLE DO GAME=====================================//
 //========================================================================================================//
 
-
-
-
-function updateStatusPong(msg) {
-    /*if (!masterPong && msg.disk){
-        disk.posX = -msg.disk.x;
-        disk.posY = msg.disk.y;
-        if (Math.abs(disk.posX) === 5.40000000001)
-            iluminateDisk();
+function updatePosPong(msg) {
+    if (!masterPong && msg.ball){
+        ball.x = -msg.ball.x;
+        ball.y = msg.ball.y;
     }
-    playerB.posY = msg.player.y;
-    playerB.color = msg.player.color;
-    */
+    paddle2.y = msg.player.y;   
 }
 
 function newIntervalGo(timeLeft) {
@@ -225,15 +246,13 @@ function newIntervalGo(timeLeft) {
             goInterval = null;
             $('#displayTime').html('GO!');
             launchBall()
-            if (pongStarted)
-                pongRunning = true;
+            if (pongStarted){ pongRunning = true; }
         }
         timeLeft--;
     }, 500);
 }
 
 function stopGame() {
-    console.log('Stop Game')
 
     masterPong = false;
     pongRunning = false;
@@ -242,13 +261,14 @@ function stopGame() {
     TimeA.score = 0;
     TimeB.score = 0;
 
-    paddle2.x = game.config.width;
-    paddle2.y = game.config.height/2;
+    //paddle2.x = game.config.width;
+    //paddle2.y = game.config.height/2;
     
     clearInterval(goInterval);
-    $('#displayTime').html('Wait');
+    $('#displayTime').html('Tempo');
     $('#localScore').html('0');
     $('#remoteScore').html('0');
+    document.getElementById('displayResultado').style.display = 'none';
 
     resetPosBall()
 }
