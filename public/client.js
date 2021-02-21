@@ -329,10 +329,11 @@ function sendBeginGame() {
   //newIntervalGo(5)
 }
 
-function checkMaster(){ //funcao para verificar o dono da sala, usado para espelhar a bola no jogo.js
+function checkMaster(){ //funcao para verificar o dono da sala, usado para definir as palhetas
   if(loginDetails.isRoomCreator){
     masterPong = true
   } else{
     masterPong = false
   }
+  //console.log('checkMaster ',masterPong)
 }
