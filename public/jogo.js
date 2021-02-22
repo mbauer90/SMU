@@ -252,6 +252,13 @@ function sendPlayerPosition(player) { //O visitante envia apenas sua localizacao
     sendChannel.send(JSON.stringify(objToSend));
 }
 
+function sendBeginGame() {
+    sendChannel.send(JSON.stringify({ 'type': 'begin_game'}))
+    pongStarted = true
+    checkMaster()
+    //newIntervalGo(5)
+  }
+
 //========================================================================================================//
 //================================FUNCOES NOVAS PARA CONTROLE DO GAME=====================================//
 //========================================================================================================//
@@ -294,6 +301,18 @@ function newIntervalGo(timeLeft) {
             timeLeft--;
         }, 1000);
 }
+
+//================================ CONTROLE GAME =========================================================//
+//========================================================================================================//
+  
+  function checkMaster(){ //funcao para verificar o dono da sala, usado para definir as palhetas
+    if(loginDetails.isRoomCreator){
+      masterPong = true
+    } else{
+      masterPong = false
+    }
+    //console.log('checkMaster ',masterPong)
+  }
 
 function stopGame() {
 

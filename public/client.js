@@ -268,32 +268,9 @@ function receiveChannelCallback(event) {
   receiveChannel.onopen = handleReceiveChannelStatusChange
   receiveChannel.onclose = handleReceiveChannelStatusChange
 }
-
-//================================ ENVIO E RECEPCAO NO DATA CHANNEL ======================================//
 //========================================================================================================//
-
-function sendMessage() { 
-  if(localText.value != ""){
-      var a = loginDetails.userId
-      var b = ": "
-      var c = a.concat(b)
-      var d = localText.value//COLOCA O USER ID NA MESSAGEM
-      var e = c.concat(d)
-      var f = '\n'
-      var message = f.concat(e)
-      sendChannel.send(JSON.stringify({
-        'type': 'chat_message',
-        'content': message
-      }));
-      
-      // Clear the input box and re-focus it, so that we're
-      // ready for the next message.
-      localText.value = ""
-      localText.focus()
-      var txt=document.createTextNode(message)
-      chat.appendChild(txt)
-  }
-}
+//======== RECEPCAO NO DATA CHANNEL E ENCAMINHAMENTO PARA FUNCOES CHAT E JOGO ============================//
+//========================================================================================================//
 
 // Handle onmessage events for the receiving channel.
 // These are the data messages sent by the sending channel.
@@ -303,10 +280,7 @@ function handleReceiveMessage(event) {
   //console.log(msg.type)
 
     if (msg.type === 'chat_message') {
-      var linebreak = document.createElement('br')
-      var txt=document.createTextNode(msg.content)
-      chat.appendChild(linebreak)
-      chat.appendChild(txt)
+      updateChatBox(msg)
     } else if (msg.type === 'game_status'){
       updatePosPong(msg) // atualiza posicao da bola e palhetas
     } else if (msg.type === 'begin_game') {
@@ -318,22 +292,4 @@ function handleReceiveMessage(event) {
       console.error("Tipo nao definido", msg.type)
     }
   
-}
-
-//================================ CONTROLE GAME =========================================================//
-//========================================================================================================//
-function sendBeginGame() {
-  sendChannel.send(JSON.stringify({ 'type': 'begin_game'}))
-  pongStarted = true
-  checkMaster()
-  //newIntervalGo(5)
-}
-
-function checkMaster(){ //funcao para verificar o dono da sala, usado para definir as palhetas
-  if(loginDetails.isRoomCreator){
-    masterPong = true
-  } else{
-    masterPong = false
-  }
-  //console.log('checkMaster ',masterPong)
 }
