@@ -62,6 +62,7 @@ socket.on('leave_room', async (nisRoomCreator) => {
     loginDetails.isRoomCreator = true
   }
 
+  stopChatBox()
   stopGame()
   socket.emit('ack_leave', loginDetails)
 
