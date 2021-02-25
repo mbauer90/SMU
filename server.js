@@ -1,4 +1,5 @@
 const express = require('express')
+const { ClientRequest } = require('http')
 const app = express()
 const server = require('http').createServer(app)
 const io = require('socket.io')(server)
@@ -19,6 +20,8 @@ io.on('connection', (socket) => {
       console.log(`Criando sala ${loginDetails.roomId}, o user ${loginDetails.userId} emitiu room_created`)
       
       loginDetails.isRoomCreator = true //Seta como criador da sala
+      loginDetails.idSocket = socket.id
+
       Clients.push(loginDetails)
       console.log(Clients)
 
@@ -29,6 +32,7 @@ io.on('connection', (socket) => {
       console.log(`Entrou na sala ${loginDetails.roomId}, o user ${loginDetails.userId} emitiu room_joined`)
 
       loginDetails.isRoomCreator = false
+      loginDetails.idSocket = socket.id
       Clients.push(loginDetails)
       console.log(Clients)
 
@@ -65,8 +69,37 @@ io.on('connection', (socket) => {
 
   }) 
 
+//=======================================================================================================//
+//======================================= IDENTIFICA UMA DESCONEXÃO =====================================//
+//=======================================================================================================//
+socket.on('disconnect', () => {
 
-  //========================== BROADSCAST DE NEGOCIACAO/SDP =======================================//
+    if(Clients.find(x => x.idSocket === socket.id)){  //EVITA O ERRO DE OBJETO INDEFINIDO
+      
+      console.log('###########Aqui é a lista ANTES de clientes################', Clients)
+
+        var userLeave = Clients.find(x => x.idSocket === socket.id)
+        Clients.splice(Clients.findIndex(item => item.idSocket === socket.id), 1) //Retira o cliente da lista
+
+        console.log('###########Aqui é a lista DEPOIS de clientes################', Clients)
+
+        console.log('###############Criador que saiu?############3', userLeave.isRoomCreator)
+        if((userLeave.isRoomCreator) && Clients.length > 0){ //Se for o criador 
+            Clients[0].isRoomCreator = true          
+        }
+
+        socket.leave('SMU')
+        //socket.emit('ack_bye', userLeave) //Informa que foi retirado com sucesso
+
+        if(Clients.length != 0){
+          var nisRoomCreator = Clients.find(x => x.isRoomCreator === true).userId
+          socket.broadcast.to('SMU').emit('leave_room',nisRoomCreator)
+        }
+    }
+  })
+//=======================================================================================================//
+
+//============================= BROADSCAST DE NEGOCIACAO/SDP ============================================//
     socket.on('enter_call', function (loginDetails) {
       console.log(`Broadcast enter_call na sala ${loginDetails.roomId}`)
       socket.broadcast.to(loginDetails.roomId).emit('enter_call')

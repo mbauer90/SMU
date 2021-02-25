@@ -31,8 +31,9 @@ let receiveChannel = null;    // RTCDataChannel for the remote (receiver)
 let roomId = "SMU"
 let userId
 let isRoomCreator
+let idSocket
 
-let loginDetails={roomId, userId, isRoomCreator} 
+let loginDetails={roomId, userId, isRoomCreator, idSocket} 
 
 // BUTTON LISTENER ============================================================
 connectButton.addEventListener('click', () => { joinRoom(userInput.value) })
@@ -61,6 +62,7 @@ socket.on('leave_room', async (nisRoomCreator) => {
     loginDetails.isRoomCreator = true
   }
 
+  stopGame()
   socket.emit('ack_leave', loginDetails)
 
 })
