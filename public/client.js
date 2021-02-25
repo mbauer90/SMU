@@ -29,11 +29,11 @@ let localConnection = null;   // RTCPeerConnection for our "local" connection
 let sendChannel = null;       // RTCDataChannel for the local (sender)
 let receiveChannel = null;    // RTCDataChannel for the remote (receiver)
 let roomId = "SMU"
-let userId
+let userName
 let isRoomCreator
 let idSocket
 
-let loginDetails={roomId, userId, isRoomCreator, idSocket} 
+let loginDetails={roomId, userName, isRoomCreator, idSocket} 
 
 // BUTTON LISTENER ============================================================
 connectButton.addEventListener('click', () => { joinRoom(userInput.value) })
@@ -58,7 +58,7 @@ socket.on('room_joined', async () => {
 socket.on('leave_room', async (nisRoomCreator) => {
   console.log('Socket event callback: leave_room')
 
-  if(nisRoomCreator == loginDetails.userId){
+  if(nisRoomCreator == loginDetails.userName){
     loginDetails.isRoomCreator = true
   }
 
@@ -170,7 +170,8 @@ function joinRoom(user) {
     alert('Informe o nome do usuario')
   } else {
     buttonLogin()
-    loginDetails.userId = user + (new Date()).getTime()
+    loginDetails.userName = user + (new Date()).getTime()
+    //loginDetails.userName = user 
     console.log('Enviou Join para o servidor') 
     socket.emit('join', loginDetails)
   }
@@ -215,12 +216,8 @@ function buttonLogout() {
   userInput.disabled = false //Habilita o texto
   connectButton.disabled = false
   stopconnectButton.disabled = true
-  buttonsendText.disabled = true
 
-  localText.value = ""
-  localText.disabled = true
-  chat.innerHTML = ""
-  //displayGame.style.display= "none"
+  stopChatBox()
   stopGame()
 }
 
@@ -235,14 +232,9 @@ function handleSendChannelStatusChange(event) {
   if (sendChannel) {
     var state = sendChannel.readyState
     if (state === "open") {
-      localText.disabled = false
-      localText.focus()
-      buttonsendText.disabled = false
-      displayGame.style.display= "block" //APARECE O div DO JOGO 
+      startChatBox()
     } else {
-      localText.disabled = true
-      buttonsendText.disabled = true
-      //displayGame.style.display= "none" //DESAPARECE O div DO JOGO 
+      stopChatBox()
       stopGame()
     }
   }

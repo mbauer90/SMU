@@ -1,6 +1,6 @@
 function sendMessage() { 
     if(localText.value != ""){
-        var a = loginDetails.userId
+        var a = loginDetails.userName
         var b = ": "
         var c = a.concat(b)
         var d = localText.value//COLOCA O USER ID NA MESSAGEM
@@ -29,3 +29,18 @@ function updateChatBox(msg){
     chat.appendChild(txt)
 }
 
+function stopChatBox(){
+  localText.disabled = true
+  buttonsendText.disabled = true
+  //displayGame.style.display= "none" //DESAPARECE O div DO JOGO 
+  localText.value = ""
+  chat.innerHTML = ""
+
+}
+
+function startChatBox(){
+  localText.disabled = false
+  localText.focus()
+  buttonsendText.disabled = false
+  displayGame.style.display= "block" //APARECE O div DO JOGO 
+}

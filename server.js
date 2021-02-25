@@ -13,11 +13,11 @@ io.on('connection', (socket) => {
     const roomClients = io.sockets.adapter.rooms[loginDetails.roomId] || { length: 0 }
     const numberOfClients = roomClients.length
 
-    console.log(`Chegou o join do user ${loginDetails.userId}`)
+    console.log(`Chegou o join do user ${loginDetails.userName}`)
     // These events are emitted only to the sender socket.
 
     if (numberOfClients == 0) {
-      console.log(`Criando sala ${loginDetails.roomId}, o user ${loginDetails.userId} emitiu room_created`)
+      console.log(`Criando sala ${loginDetails.roomId}, o user ${loginDetails.userName} emitiu room_created`)
       
       loginDetails.isRoomCreator = true //Seta como criador da sala
       loginDetails.idSocket = socket.id
@@ -29,7 +29,7 @@ io.on('connection', (socket) => {
       socket.emit('room_created', loginDetails)
 
     } else if (numberOfClients <= 3) {
-      console.log(`Entrou na sala ${loginDetails.roomId}, o user ${loginDetails.userId} emitiu room_joined`)
+      console.log(`Entrou na sala ${loginDetails.roomId}, o user ${loginDetails.userName} emitiu room_joined`)
 
       loginDetails.isRoomCreator = false
       loginDetails.idSocket = socket.id
@@ -40,15 +40,15 @@ io.on('connection', (socket) => {
       socket.emit('room_joined', loginDetails)
 
     } else {
-      console.log(`Sala ${loginDetails.roomId} cheia user ${loginDetails.userId}, emitiu full_room`)
+      console.log(`Sala ${loginDetails.roomId} cheia user ${loginDetails.userName}, emitiu full_room`)
       socket.emit('full_room', loginDetails)
     }
   })
 
   socket.on('bye', (loginDetails) => {
-      console.log(`${loginDetails.userId} Criador: ${loginDetails.isRoomCreator} saiu da sala ${loginDetails.roomId}, emitiu leave_room`)
+      console.log(`${loginDetails.userName} Criador: ${loginDetails.isRoomCreator} saiu da sala ${loginDetails.roomId}, emitiu leave_room`)
 
-      Clients.splice(Clients.findIndex(item => item.userId === loginDetails.userId), 1) //Retira o cliente da lista
+      Clients.splice(Clients.findIndex(item => item.userName === loginDetails.userName), 1) //Retira o cliente da lista
 
       if((loginDetails.isRoomCreator) && Clients.length > 0){ //Se for o criador
           Clients[0].isRoomCreator = true          
@@ -59,13 +59,13 @@ io.on('connection', (socket) => {
       socket.emit('ack_bye', loginDetails) //Informa que foi retirado com sucesso
 
       if(!Clients.length == 0){
-        var nisRoomCreator = Clients[Clients.findIndex(item => item.isRoomCreator == true)].userId
+        var nisRoomCreator = Clients[Clients.findIndex(item => item.isRoomCreator == true)].userName
         socket.broadcast.to(loginDetails.roomId).emit('leave_room',nisRoomCreator)
       }
   }) 
 
   socket.on('ack_leave', (loginDetails) => {
-    console.log(`Recebeu ack_leave de ${loginDetails.userId}`)
+    console.log(`Recebeu ack_leave de ${loginDetails.userName}`)
 
   }) 
 
@@ -75,15 +75,10 @@ io.on('connection', (socket) => {
 socket.on('disconnect', () => {
 
     if(Clients.find(x => x.idSocket === socket.id)){  //EVITA O ERRO DE OBJETO INDEFINIDO
-      
-      console.log('###########Aqui é a lista ANTES de clientes################', Clients)
 
         var userLeave = Clients.find(x => x.idSocket === socket.id)
         Clients.splice(Clients.findIndex(item => item.idSocket === socket.id), 1) //Retira o cliente da lista
-
-        console.log('###########Aqui é a lista DEPOIS de clientes################', Clients)
-
-        console.log('###############Criador que saiu?############3', userLeave.isRoomCreator)
+        
         if((userLeave.isRoomCreator) && Clients.length > 0){ //Se for o criador 
             Clients[0].isRoomCreator = true          
         }
@@ -92,7 +87,7 @@ socket.on('disconnect', () => {
         //socket.emit('ack_bye', userLeave) //Informa que foi retirado com sucesso
 
         if(Clients.length != 0){
-          var nisRoomCreator = Clients.find(x => x.isRoomCreator === true).userId
+          var nisRoomCreator = Clients.find(x => x.isRoomCreator === true).userName
           socket.broadcast.to('SMU').emit('leave_room',nisRoomCreator)
         }
     }
