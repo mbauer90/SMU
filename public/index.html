@@ -60,6 +60,15 @@
 <script src="/socket.io/socket.io.js"></script>
 <script type="text/javascript" src="client.js"></script>
 
+<!-- TRATA A QUESTÃO DO SPACEBAR -->
+<script type="text/javascript" > 
+    $("#localText").keyup(function(event){
+        if(event.keyCode == 32){
+            $("localText").val($("localText").val()+' ');
+        }
+    }); 
+</script>
+
 </body>
 
 

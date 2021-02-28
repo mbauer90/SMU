@@ -1,12 +1,9 @@
 function sendMessage() { 
     if(localText.value != ""){
-        var a = loginDetails.userName
-        var b = ": "
-        var c = a.concat(b)
-        var d = localText.value//COLOCA O USER ID NA MESSAGEM
-        var e = c.concat(d)
-        var f = '\n'
-        var message = f.concat(e)
+        var a = loginDetails.userName.slice(0, -13)
+        var c = a.concat(": ")
+        var e = c.concat(localText.value)
+        var message = e.concat('\n')
         sendChannel.send(JSON.stringify({
           'type': 'chat_message',
           'content': message
@@ -42,5 +39,5 @@ function startChatBox(){
   localText.disabled = false
   localText.focus()
   buttonsendText.disabled = false
-  displayGame.style.display= "block" //APARECE O div DO JOGO 
+  //displayGame.style.display= "block" //APARECE O div DO JOGO 
 }
