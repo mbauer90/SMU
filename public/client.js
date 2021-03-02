@@ -24,6 +24,11 @@ const buttonsendText = document.getElementById('buttonsendText')
 // Variables.
 const socket = io()
 
+// Variaveis do SFU
+let consumerTransport = null;
+let producerTransport = null;
+let device = null;
+
 let localStream
 let localConnection = null;   // RTCPeerConnection for our "local" connection
 let sendChannel = null;       // RTCDataChannel for the local (sender)
@@ -45,6 +50,9 @@ socket.on('room_created', async () => {
   console.log('Socket event callback: room_created')
   buttonLogin()
   loginDetails.isRoomCreator = true
+
+  createProdutor()
+  
 })
 
 socket.on('room_joined', async () => {
@@ -52,7 +60,11 @@ socket.on('room_joined', async () => {
   buttonLogin()
   loginDetails.isRoomCreator = false
   console.log('Socket send: enter_call')
+
+  createProdutor()
   socket.emit('enter_call', loginDetails)
+  createConsumidor()
+
 })
 
 socket.on('leave_room', async (nisRoomCreator) => {
@@ -83,6 +95,8 @@ socket.on('full_room', () => {
 
 socket.on('enter_call', async () => {
   console.log('Socket event callback: enter_call')
+
+  createConsumidor()
 
   if (loginDetails.isRoomCreator) {
     localConnection = new RTCPeerConnection(iceServers)
@@ -225,6 +239,7 @@ function buttonLogout() {
 //========================================================================================================//
 //===================================== FUNCOES DO DATA CHANNEL ==========================================//
 // =======================================================================================================//
+
 
 // Handle status changes on the local end of the data
 // channel; this is the end doing the sending of data

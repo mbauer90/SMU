@@ -3,6 +3,7 @@ const { ClientRequest } = require('http')
 const app = express()
 const server = require('http').createServer(app)
 const io = require('socket.io')(server)
+const mediasoup = require('mediasoup')
 const Clients = new Array()
 
 app.use('/', express.static('public'))
@@ -93,7 +94,6 @@ socket.on('disconnect', () => {
     }
   })
 //=======================================================================================================//
-
 //============================= BROADSCAST DE NEGOCIACAO/SDP ============================================//
     socket.on('enter_call', function (loginDetails) {
       console.log(`Broadcast enter_call na sala ${loginDetails.roomId}`)
@@ -117,10 +117,265 @@ socket.on('disconnect', () => {
       socket.broadcast.to(event.roomId).emit('ice_candidate', event)
     })
 
+
+
+
+
+
+
+
+
+
+//=======================================================================================================//
+//=======================================================================================================//
+//============================= MEDIASOUP ===============================================================//
+//=======================================================================================================//
+//=======================================================================================================//
+
+    socket.on('getRouterRtpCapabilities', (data, callback) => {
+      if (router) {
+        //console.log('getRouterRtpCapabilities: ', router.rtpCapabilities);
+        sendResponse(router.rtpCapabilities, callback);
+      }
+      else {
+        sendReject({ text: 'ERROR- router NOT READY' }, callback);
+      }
+    });
+
+//=============================================================================================//
+//=========================== PRODUTOR = ======================================================//
+//=============================================================================================//
+
+    socket.on('createProducerTransport', async (data, callback) => {
+      console.log('-- createProducerTransport ---');
+      const { transport, params } = await createTransport();
+      addProducerTrasport(socket.id, transport);
+      transport.observer.on('close', () => {
+        console.log('Deletou o produtor')
+        const id = socket.id;
+        removeProducerTransport(id);
+      });
+      console.log(transport)
+      sendResponse(params, callback);
+    });
+
+    socket.on('connectProducerTransport', async (data, callback) => {
+      console.log('connectProducerTransport by socket ', socket);
+      const transport = getProducerTrasnport(socket.id);
+      await transport.connect({ dtlsParameters: data.dtlsParameters });
+      sendResponse({}, callback);
+    });
+    
+    socket.on('produce', async (data, callback) => {
+      const { kind, rtpParameters } = data;
+      console.log('-- produce --- kind=' + kind);
+      const id = getId(socket);
+      const transport = getProducerTrasnport(id);
+      if (!transport) {
+        console.error('transport NOT EXIST for id=' + id);
+        return;
+      }
+      const producer = await transport.produce({ kind, rtpParameters });
+      addProducer(id, producer, kind);
+      producer.observer.on('close', () => {
+        console.log('producer closed --- kind=' + kind);
+      })
+      sendResponse({ id: producer.id }, callback);
+  
+      // inform clients about new producer
+      console.log('--broadcast newProducer ---');
+      socket.broadcast.emit('newProducer', { socketId: id, producerId: producer.id, kind: producer.kind });
+    });    
+
+//=============================================================================================//
+//=========================== CONSUMIDOR ======================================================//
+//=============================================================================================//
+  socket.on('createConsumerTransport', async (data, callback) => {
+    console.log('-- createConsumerTransport -- id=' + socket.id);
+    const { transport, params } = await createTransport();
+    addConsumerTrasport(socket.id, transport);
+    transport.observer.on('close', () => {
+      console.log('Deletou o cosumidor');
+      const localId = socket.id;
+      removeConsumerSetDeep(localId);
+      removeConsumerTransport(id);
+    });
+    //console.log('-- createTransport params:', params);
+    sendResponse(params, callback);
+    //callback(null, params);
+  });
 })
+
+//==================================================================================================//
+//============================= NEGOCIACAO SDP/SFU =================================================//
+//==================================================================================================//
+  // --- send response to client ---
+  function sendResponse(response, callback) {
+    //console.log('sendResponse() callback:', callback);
+    callback(null, response);
+  }
+
+    // --- send error to client ---
+    function sendReject(error, callback) {
+      callback(error.toString(), null);
+    }
+  
+    function sendback(socket, message) {
+      socket.emit('message', message);
+    }
+
+//==============================================================================================//
+
+const mediasoupOptions = {
+  // Worker settings
+  worker: {
+    rtcMinPort: 10000,
+    rtcMaxPort: 10100,
+    logLevel: 'warn',
+    logTags: [
+      'info',
+      'ice',
+      'dtls',
+      'rtp',
+      'srtp',
+      'rtcp',
+      // 'rtx',
+      // 'bwe',
+      // 'score',
+      // 'simulcast',
+      // 'svc'
+    ],
+  },
+  // Router settings
+  router: {
+    mediaCodecs:
+      [
+        {
+          kind: 'audio',
+          mimeType: 'audio/opus',
+          clockRate: 48000,
+          channels: 2
+        },
+        {
+          kind: 'video',
+          mimeType: 'video/VP8',
+          clockRate: 90000,
+          parameters:
+          {
+            'x-google-start-bitrate': 1000
+          }
+        },
+      ]
+  },
+  // WebRtcTransport settings
+  webRtcTransport: {
+    listenIps: [
+      { ip: '127.0.0.1', announcedIp: null }
+    ],
+    enableUdp: true,
+    enableTcp: true,
+    preferUdp: true,
+    maxIncomingBitrate: 1500000,
+    initialAvailableOutgoingBitrate: 1000000,
+  }
+};
+
+let worker = null;
+let router = null;
+
+async function startWorker() {
+  const mediaCodecs = mediasoupOptions.router.mediaCodecs;
+  worker = await mediasoup.createWorker();
+  router = await worker.createRouter({ mediaCodecs });
+  console.log('-- mediasoup worker start. --')
+}
+
+startWorker();
+
+// --- multi-producers --
+let producerTransports = {};
+
+function getProducerTrasnport(id) {
+  return producerTransports[id];
+}
+
+function addProducerTrasport(id, transport) {
+  producerTransports[id] = transport;
+  console.log('producerTransports count=' + Object.keys(producerTransports).length);
+}
+
+function removeProducerTransport(id) {
+  delete producerTransports[id];
+  console.log('producerTransports count=' + Object.keys(producerTransports).length);
+}
+
+// --- multi-consumers --
+let consumerTransports = {};
+let videoConsumers = {};
+let audioConsumers = {};
+
+function addConsumerTrasport(id, transport) {
+  consumerTransports[id] = transport;
+  console.log('consumerTransports count=' + Object.keys(consumerTransports).length);
+}
+
+function removeConsumerTransport(id) {
+  delete consumerTransports[id];
+  console.log('consumerTransports count=' + Object.keys(consumerTransports).length);
+}
+
+function removeConsumerSetDeep(localId) {
+  const set = getConsumerSet(localId, 'video');
+  delete videoConsumers[localId];
+  if (set) {
+    for (const key in set) {
+      const consumer = set[key];
+      consumer.close();
+      delete set[key];
+    }
+
+    console.log('removeConsumerSetDeep video consumers count=' + Object.keys(set).length);
+  }
+
+  const audioSet = getConsumerSet(localId, 'audio');
+  delete audioConsumers[localId];
+  if (audioSet) {
+    for (const key in audioSet) {
+      const consumer = audioSet[key];
+      consumer.close();
+      delete audioSet[key];
+    }
+
+    console.log('removeConsumerSetDeep audio consumers count=' + Object.keys(audioSet).length);
+  }
+}
+
+
+async function createTransport() {
+  const transport = await router.createWebRtcTransport(mediasoupOptions.webRtcTransport);
+  console.log('-- create transport id=' + transport.id);
+
+  return {
+    transport: transport,
+    params: {
+      id: transport.id,
+      iceParameters: transport.iceParameters,
+      iceCandidates: transport.iceCandidates,
+      dtlsParameters: transport.dtlsParameters
+    }
+  };
+}
+
+
+
+
 
 //============================= INICIA SERVIDOR ====================================================//
 const port = process.env.PORT || 3000
 server.listen(port, () => {
   console.log(`Servidor Express escutando na porta ${port}`)
 })
+
+
+
+
