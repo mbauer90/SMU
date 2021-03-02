@@ -155,7 +155,6 @@ socket.on('disconnect', () => {
         const id = socket.id;
         removeProducerTransport(id);
       });
-      console.log(transport)
       sendResponse(params, callback);
     });
 
@@ -246,27 +245,6 @@ const mediasoupOptions = {
       // 'svc'
     ],
   },
-  // Router settings
-  router: {
-    mediaCodecs:
-      [
-        {
-          kind: 'audio',
-          mimeType: 'audio/opus',
-          clockRate: 48000,
-          channels: 2
-        },
-        {
-          kind: 'video',
-          mimeType: 'video/VP8',
-          clockRate: 90000,
-          parameters:
-          {
-            'x-google-start-bitrate': 1000
-          }
-        },
-      ]
-  },
   // WebRtcTransport settings
   webRtcTransport: {
     listenIps: [
@@ -284,9 +262,8 @@ let worker = null;
 let router = null;
 
 async function startWorker() {
-  const mediaCodecs = mediasoupOptions.router.mediaCodecs;
   worker = await mediasoup.createWorker();
-  router = await worker.createRouter({ mediaCodecs });
+  router = await worker.createRouter();
   console.log('-- mediasoup worker start. --')
 }
 
