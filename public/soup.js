@@ -1,49 +1,56 @@
 async function createProdutor(){
+          
     const data = await sendRequest('getRouterRtpCapabilities', {});
     await loadDevice(data);
-  
+
+    // Create a transport in the server for sending our media through it.
     console.log('--- createProducerTransport --');
     const params = await sendRequest('createProducerTransport', {});
-    //console.log('transport params:', params);
-    producerTransport = device.createSendTransport(params);
-    console.log('createSendTransport:', producerTransport);
+
+    sendTransport = device.createSendTransport(params);
+    console.log('createSendTransport:', sendTransport);
 
     // --- join & start publish --
-    producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
-      console.log('--transport connect');
-      //sendRequest('connectProducerTransport', { dtlsParameters: dtlsParameters })
-      //  .then(callback)
-      //  .catch(errback);
+    sendTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+      console.log('--transport producer connect');
+      sendRequest('connectProducerTransport', { dtlsParameters: dtlsParameters })
+        .then(callback)
+        .catch(errback);
     });
+
+    sendTransport.on('connectionstatechange', (state) => {
+      console.log('Estado do produtor mudou: ', state);
+    });
+
+    // Set transport "producedata" event handler.
+    sendTransport.on('producedata', async ({ rtpParameters, label, protocol, appData }, callback, errback) =>{
+        console.log('--transport produce');
+          try {
+            const { id } = await sendRequest('producedata', {
+              transportId: sendTransport.id,
+              label,
+              protocol,
+              appData,
+              rtpParameters,
+            });
+            sendResponse({ id}, callback);
+            //callback({ id });
+            console.log('--produce requested, then subscribe ---');
+            subscribe();
+          } catch (err) {
+            errback(err);
+          }
+      });
+
+    // Produce data (DataChannel).
+    //const dataProducer = await sendTransport.produceData({ ordered: true, label: 'foo' });
+    //const dataProducer = await sendTransport.produceData();
 }
 
 //=========================================================================================================//
 //======================================= CONSUMIDOR ======================================================//
 //=========================================================================================================//
   
-  async function createConsumidor(){
-    const data = await sendRequest('getRouterRtpCapabilities', {});
-    //console.log('getRouterRtpCapabilities:', data);
-    await loadDevice(data);
-  
-        // --- prepare transport ---
-        console.log('--- createConsumerTransport --');
-        if (!consumerTransport) {
-          const params = await sendRequest('createConsumerTransport', {});
-          console.log('transport params:', params);
-          consumerTransport = device.createRecvTransport(params);
-          console.log('createConsumerTransport:', consumerTransport);
-      
-          // --- join & start publish --
-          consumerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
-            console.log('--consumer trasnport connect');
-            sendRequest('connectConsumerTransport', { dtlsParameters: dtlsParameters })
-              .then(callback)
-              .catch(errback);
-          });
-        }
-  }
-
 
 //============================== FUNCOES AUXILIARES ===============================================//
 
@@ -61,12 +68,6 @@ async function createProdutor(){
   }
 
   async function loadDevice(routerRtpCapabilities) {
-    try {
       device = new MediasoupClient.Device();
-    } catch (error) {
-      if (error.name === 'UnsupportedError') {
-        console.error('browser not supported');
-      }
-    }
-    await device.load({ routerRtpCapabilities });
+      await device.load({ routerRtpCapabilities });
   }

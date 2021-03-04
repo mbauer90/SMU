@@ -7,6 +7,7 @@ const mediasoup = require('mediasoup')
 const Clients = new Array()
 
 app.use('/', express.static('public'))
+startWorker()
 
 io.on('connection', (socket) => {
   socket.on('join', (loginDetails) => {
@@ -117,15 +118,6 @@ socket.on('disconnect', () => {
       socket.broadcast.to(event.roomId).emit('ice_candidate', event)
     })
 
-
-
-
-
-
-
-
-
-
 //=======================================================================================================//
 //=======================================================================================================//
 //============================= MEDIASOUP ===============================================================//
@@ -151,7 +143,6 @@ socket.on('disconnect', () => {
       const { transport, params } = await createTransport();
       addProducerTrasport(socket.id, transport);
       transport.observer.on('close', () => {
-        console.log('Deletou o produtor')
         const id = socket.id;
         removeProducerTransport(id);
       });
@@ -163,47 +154,36 @@ socket.on('disconnect', () => {
       const transport = getProducerTrasnport(socket.id);
       await transport.connect({ dtlsParameters: data.dtlsParameters });
       sendResponse({}, callback);
-    });
-    
-    socket.on('produce', async (data, callback) => {
-      const { kind, rtpParameters } = data;
-      console.log('-- produce --- kind=' + kind);
-      const id = getId(socket);
+    });   
+
+    socket.on('producedata', async (data, callback) => {
+      const { rtpParameters } = data;
+      console.log('-- produce ---');
+      const id = socket.id;
       const transport = getProducerTrasnport(id);
       if (!transport) {
         console.error('transport NOT EXIST for id=' + id);
         return;
       }
-      const producer = await transport.produce({ kind, rtpParameters });
-      addProducer(id, producer, kind);
+      const producer = await transport.produceData({ rtpParameters });
+      //const producer = await transport.produce({ rtpParameters });
+      addProducer(id, producer);
       producer.observer.on('close', () => {
-        console.log('producer closed --- kind=' + kind);
+        console.log('producer closed');
       })
       sendResponse({ id: producer.id }, callback);
   
       // inform clients about new producer
       console.log('--broadcast newProducer ---');
-      socket.broadcast.emit('newProducer', { socketId: id, producerId: producer.id, kind: producer.kind });
-    });    
+      socket.broadcast.emit('newProducer', { socketId: id, producerId: producer.id });
+    });
 
 //=============================================================================================//
 //=========================== CONSUMIDOR ======================================================//
 //=============================================================================================//
-  socket.on('createConsumerTransport', async (data, callback) => {
-    console.log('-- createConsumerTransport -- id=' + socket.id);
-    const { transport, params } = await createTransport();
-    addConsumerTrasport(socket.id, transport);
-    transport.observer.on('close', () => {
-      console.log('Deletou o cosumidor');
-      const localId = socket.id;
-      removeConsumerSetDeep(localId);
-      removeConsumerTransport(id);
-    });
-    //console.log('-- createTransport params:', params);
-    sendResponse(params, callback);
-    //callback(null, params);
-  });
-})
+
+
+})  //FIM DO SOCKET.IO
 
 //==================================================================================================//
 //============================= NEGOCIACAO SDP/SFU =================================================//
@@ -267,8 +247,6 @@ async function startWorker() {
   console.log('-- mediasoup worker start. --')
 }
 
-startWorker();
-
 // --- multi-producers --
 let producerTransports = {};
 
@@ -284,47 +262,6 @@ function addProducerTrasport(id, transport) {
 function removeProducerTransport(id) {
   delete producerTransports[id];
   console.log('producerTransports count=' + Object.keys(producerTransports).length);
-}
-
-// --- multi-consumers --
-let consumerTransports = {};
-let videoConsumers = {};
-let audioConsumers = {};
-
-function addConsumerTrasport(id, transport) {
-  consumerTransports[id] = transport;
-  console.log('consumerTransports count=' + Object.keys(consumerTransports).length);
-}
-
-function removeConsumerTransport(id) {
-  delete consumerTransports[id];
-  console.log('consumerTransports count=' + Object.keys(consumerTransports).length);
-}
-
-function removeConsumerSetDeep(localId) {
-  const set = getConsumerSet(localId, 'video');
-  delete videoConsumers[localId];
-  if (set) {
-    for (const key in set) {
-      const consumer = set[key];
-      consumer.close();
-      delete set[key];
-    }
-
-    console.log('removeConsumerSetDeep video consumers count=' + Object.keys(set).length);
-  }
-
-  const audioSet = getConsumerSet(localId, 'audio');
-  delete audioConsumers[localId];
-  if (audioSet) {
-    for (const key in audioSet) {
-      const consumer = audioSet[key];
-      consumer.close();
-      delete audioSet[key];
-    }
-
-    console.log('removeConsumerSetDeep audio consumers count=' + Object.keys(audioSet).length);
-  }
 }
 
 

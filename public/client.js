@@ -52,7 +52,7 @@ socket.on('room_created', async () => {
   loginDetails.isRoomCreator = true
 
   createProdutor()
-  
+  //createConsumidor()
 })
 
 socket.on('room_joined', async () => {
@@ -60,11 +60,7 @@ socket.on('room_joined', async () => {
   buttonLogin()
   loginDetails.isRoomCreator = false
   console.log('Socket send: enter_call')
-
-  createProdutor()
   socket.emit('enter_call', loginDetails)
-  createConsumidor()
-
 })
 
 socket.on('leave_room', async (nisRoomCreator) => {
@@ -96,6 +92,7 @@ socket.on('full_room', () => {
 socket.on('enter_call', async () => {
   console.log('Socket event callback: enter_call')
 
+  createProdutor()
   createConsumidor()
 
   if (loginDetails.isRoomCreator) {
@@ -128,6 +125,9 @@ socket.on('enter_call', async () => {
 
 socket.on('offer', async (event) => {
   console.log('Socket event callback: offer')
+
+  createProdutor()
+  createConsumidor()
 
   if (!loginDetails.isRoomCreator) {
     localConnection = new RTCPeerConnection(iceServers)

@@ -11,10 +11,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "browserify": "^17.0.0",
     "express": "^4.17.1",
     "expressa": "^0.5.19",
     "mediasoup": "^3.6.32",
-    "mediasoup-client": "^3.6.28",
+    "mediasoup-client": "^3.6.29",
     "socket.io": "^2.3.0",
     "ws": "^7.4.1"
   }
