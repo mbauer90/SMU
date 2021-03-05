@@ -7,10 +7,10 @@ Para as especificações do protocolo de sinalização e demais documentos acess
 
 Para utilizar executar os seguintes comandos
 
-npm install
+#npm install
 
-npm run build-client
+#npm run build-client
 
-node server
+#node server
 
 O servidor ficará ativo na porta 3000
