@@ -9,6 +9,8 @@ Para utilizar executar os seguintes comandos
 
 npm install
 
+npm run build-client
+
 node server
 
 O servidor ficará ativo na porta 3000
