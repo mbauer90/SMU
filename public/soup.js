@@ -6,8 +6,8 @@ async function createProdutor(){
     // Create a transport in the server for sending our media through it.
     console.log('--- createProducerTransport --');
     const params = await sendRequest('createProducerTransport', {});
-
-    sendTransport = device.createSendTransport(params);
+    console.log('transport params:', params);
+    const sendTransport = device.createSendTransport(params);
     console.log('createSendTransport:', sendTransport);
 
     // --- join & start publish --

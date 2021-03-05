@@ -146,6 +146,7 @@ socket.on('disconnect', () => {
         const id = socket.id;
         removeProducerTransport(id);
       });
+      
       sendResponse(params, callback);
     });
 
