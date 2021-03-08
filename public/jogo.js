@@ -67,13 +67,15 @@ function create ()
 
 function update (){
 
-    if((loginDetails.numberOfClients==3) && (!paddle3) ){
-        paddle3 = createPaddle(15,game.config.height/2,this);
-        this.physics.add.collider(paddle3, ball);   //elementos de colisao
-    }else if ((loginDetails.numberOfClients==4) && (!paddle4) ){
-        paddle4 = createPaddle(game.config.width-15,game.config.height/2,this);
-        this.physics.add.collider(paddle4, ball); //elementos de colisao
-    }
+        if((loginDetails.numberOfClients>2) && (!paddle3)){
+            paddle3 = createPaddle(15,game.config.height/2,this);
+            this.physics.add.collider(paddle3, ball);   //elementos de colisao
+        } 
+        if((loginDetails.numberOfClients==4) && (!paddle4)){
+            paddle4 = createPaddle(game.config.width-15,game.config.height/2,this);
+            this.physics.add.collider(paddle4, ball); //elementos de colisao
+        }
+    
 
     if (pongStarted){
         if(pongRunning){ //teste 
@@ -316,37 +318,21 @@ function updatePosPong(msg) {
 
     //LOGICA DE MOVIMENTAR OS PADDLES DIFERENTES DO USUARIO ATUAL
     if(loginDetails.posClient==1){
-        if(msg.player2){
-            paddle2.y = msg.player2.y;
-        }else if(msg.player3){
-            paddle3.y = msg.player3.y;
-        }else if(msg.player4){
-            paddle4.y = msg.player4.y;
-        }
+        if(msg.player2){ paddle2.y = msg.player2.y; } 
+        if(msg.player3){ paddle3.y = msg.player3.y; } 
+        if(msg.player4){ paddle4.y = msg.player4.y; }
     }else if(loginDetails.posClient==2){
-        if(msg.player1){
-            paddle1.y = msg.player1.y;
-        }else if(msg.player3){
-            paddle3.y = msg.player3.y;
-        }else if(msg.player4){
-            paddle4.y = msg.player4.y;
-        }
+        if(msg.player1){ paddle1.y = msg.player1.y; } 
+        if(msg.player3){ paddle3.y = msg.player3.y; } 
+        if(msg.player4){ paddle4.y = msg.player4.y; }
     }else if(loginDetails.posClient==3){
-        if(msg.player1){
-            paddle1.y = msg.player1.y;
-        }else if(msg.player2){
-            paddle2.y = msg.player2.y;
-        }else if(msg.player4){
-            paddle4.y = msg.player4.y;
-        }
+        if(msg.player1){ paddle1.y = msg.player1.y; } 
+        if(msg.player2){ paddle2.y = msg.player2.y; } 
+        if(msg.player4){ paddle4.y = msg.player4.y; }
     }else if(loginDetails.posClient==4){
-        if(msg.player1){
-            paddle1.y = msg.player1.y;
-        }else if(msg.player2){
-            paddle2.y = msg.player2.y;
-        }else if(msg.player3){
-            paddle3.y = msg.player3.y;
-        }
+        if(msg.player1){ paddle1.y = msg.player1.y; }
+        if(msg.player2){ paddle2.y = msg.player2.y; } 
+        if(msg.player3){ paddle3.y = msg.player3.y; } 
     }
   
 }
@@ -370,6 +356,7 @@ function newIntervalGo(timeLeft) {
         }, 1000);
 }
 
+//========================================================================================================//
 //================================ CONTROLE GAME =========================================================//
 //========================================================================================================//
   
@@ -403,5 +390,5 @@ function stopGame() {
     $('#placarTimeB').html('0');
     document.getElementById('displayEsperaReinicio').style.display = 'none';
 
-    resetPosBall()
+    resetPosBall();
 }
