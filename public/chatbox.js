@@ -4,7 +4,8 @@ function sendMessage() {
         var c = a.concat(": ")
         var e = c.concat(localText.value)
         var message = e.concat('\n')
-        sendChannel.send(JSON.stringify({
+        
+        messageDataProducer.send(JSON.stringify({
           'type': 'chat_message',
           'content': message
         }));

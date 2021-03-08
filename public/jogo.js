@@ -26,6 +26,8 @@ var config = {
 var game = new Phaser.Game(config);
 var paddle1;
 var paddle2;
+var paddle3;
+var paddle4;
 var ball;
 
 var ball_launched;
@@ -54,7 +56,8 @@ function create ()
     // O PONG E COLISAO NO CENARIO
     paddle1 = createPaddle(0,game.config.height/2,this);
     paddle2 = createPaddle(game.config.width,game.config.height/2,this);
-
+    //paddle3 = createPaddle(15,game.config.height/2,this);
+    //paddle4 = createPaddle(game.config.width-15,game.config.height/2,this);
     // CRIA A BOLA DO JOGO
     ball = createBall(game.config.width/2,game.config.height/2,this);
 
@@ -64,6 +67,14 @@ function create ()
 }
 
 function update (){
+
+    if((loginDetails.numberOfClients==3) && (!paddle3) ){
+        paddle3 = createPaddle(15,game.config.height/2,this);
+        this.physics.add.collider(paddle3, ball);
+    }else if ((loginDetails.numberOfClients==4) && (!paddle4) ){
+        paddle4 = createPaddle(game.config.width-15,game.config.height/2,this);
+        this.physics.add.collider(paddle4, ball);
+    }
 
     if (pongStarted){
         if(pongRunning){ //teste 
@@ -230,7 +241,7 @@ function sendNewScore (){
         'type': 'update_score',
         'content': {'TimeB': TimeB.score, 'TimeA': TimeA.score}
     }
-    sendChannel.send(JSON.stringify(objToSend));
+    messageDataProducer.send(JSON.stringify(objToSend));
 }
 
 function sendGameStatus(player) { //O dono da sala envia a localizacao da bola e sua posicao
@@ -240,7 +251,7 @@ function sendGameStatus(player) { //O dono da sala envia a localizacao da bola e
         'player': {'y': player.y}
         //'player': {'y': paddle1.y},
     }
-    sendChannel.send(JSON.stringify(objToSend));
+    messageDataProducer.send(JSON.stringify(objToSend));
 }
 
 function sendPlayerPosition(player) { //O visitante envia apenas sua localizacao
@@ -249,11 +260,11 @@ function sendPlayerPosition(player) { //O visitante envia apenas sua localizacao
         'player': {'y': player.y}
         //'player': {'y': paddle1.y}
     }
-    sendChannel.send(JSON.stringify(objToSend));
+    messageDataProducer.send(JSON.stringify(objToSend));
 }
 
 function sendBeginGame() {
-    sendChannel.send(JSON.stringify({ 'type': 'begin_game'}))
+    messageDataProducer.send(JSON.stringify({ 'type': 'begin_game'}))
     pongStarted = true
     checkMaster()
     //newIntervalGo(5)
@@ -306,11 +317,16 @@ function newIntervalGo(timeLeft) {
 //========================================================================================================//
   
   function checkMaster(){ //funcao para verificar o dono da sala, usado para definir as palhetas
+
+    console.log(loginDetails)
+
     if(loginDetails.isRoomCreator){
       masterPong = true
     } else{
       masterPong = false
     }
+
+    messageDataProducer.send(JSON.stringify({'type': 'GO!'}));
     //console.log('checkMaster ',masterPong)
   }
 

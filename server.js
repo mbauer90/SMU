@@ -3,11 +3,9 @@ const { ClientRequest } = require('http')
 const app = express()
 const server = require('http').createServer(app)
 const io = require('socket.io')(server)
-const mediasoup = require('mediasoup')
 const Clients = new Array()
 
 app.use('/', express.static('public'))
-startWorker()
 
 io.on('connection', (socket) => {
   socket.on('join', (loginDetails) => {
@@ -23,7 +21,8 @@ io.on('connection', (socket) => {
       
       loginDetails.isRoomCreator = true //Seta como criador da sala
       loginDetails.idSocket = socket.id
-
+      loginDetails.numberOfClients = numberOfClients+1
+      loginDetails.posClient = numberOfClients+1
       Clients.push(loginDetails)
       console.log(Clients)
 
@@ -35,7 +34,10 @@ io.on('connection', (socket) => {
 
       loginDetails.isRoomCreator = false
       loginDetails.idSocket = socket.id
+      loginDetails.numberOfClients = numberOfClients+1
+      loginDetails.posClient = numberOfClients+1
       Clients.push(loginDetails)
+
       console.log(Clients)
 
       socket.join(loginDetails.roomId)
@@ -49,6 +51,7 @@ io.on('connection', (socket) => {
 
   socket.on('bye', (loginDetails) => {
       console.log(`${loginDetails.userName} Criador: ${loginDetails.isRoomCreator} saiu da sala ${loginDetails.roomId}, emitiu leave_room`)
+      cleanUpPeer(socket);
 
       Clients.splice(Clients.findIndex(item => item.userName === loginDetails.userName), 1) //Retira o cliente da lista
 
@@ -68,15 +71,14 @@ io.on('connection', (socket) => {
 
   socket.on('ack_leave', (loginDetails) => {
     console.log(`Recebeu ack_leave de ${loginDetails.userName}`)
-
   }) 
 
 //=======================================================================================================//
 //======================================= IDENTIFICA UMA DESCONEXÃO =====================================//
 //=======================================================================================================//
 socket.on('disconnect', () => {
-
     if(Clients.find(x => x.idSocket === socket.id)){  //EVITA O ERRO DE OBJETO INDEFINIDO
+        cleanUpPeer(socket);
 
         var userLeave = Clients.find(x => x.idSocket === socket.id)
         Clients.splice(Clients.findIndex(item => item.idSocket === socket.id), 1) //Retira o cliente da lista
@@ -92,32 +94,16 @@ socket.on('disconnect', () => {
           var nisRoomCreator = Clients.find(x => x.isRoomCreator === true).userName
           socket.broadcast.to('SMU').emit('leave_room',nisRoomCreator)
         }
+
     }
   })
 //=======================================================================================================//
 //============================= BROADSCAST DE NEGOCIACAO/SDP ============================================//
     socket.on('enter_call', function (loginDetails) {
       console.log(`Broadcast enter_call na sala ${loginDetails.roomId}`)
-      socket.broadcast.to(loginDetails.roomId).emit('enter_call')
+      socket.broadcast.to(loginDetails.roomId).emit('enter_call',Clients.length)
     })
   
-    socket.on('offer', (event) => {
-      console.log(`Broadcast offer na sala ${event.loginDetails.roomId}`)
-      socket.broadcast.to(event.loginDetails.roomId).emit('offer', event)
-      //socket.broadcast.to(event.loginDetails.roomId).emit('offer', event.sdp)
-    })
-
-    socket.on('ack_offer', (event) => {
-      console.log(`Broadcast ack_offer na sala ${event.loginDetails.roomId}`)
-      socket.broadcast.to(event.loginDetails.roomId).emit('ack_offer', event)
-      //socket.broadcast.to(event.loginDetails.roomId).emit('ack_offer', event.sdp)
-    })
-
-    socket.on('ice_candidate', (event) => {
-      console.log(`Broadcast ice_candidate na sala ${event.roomId}`)
-      socket.broadcast.to(event.roomId).emit('ice_candidate', event)
-    })
-
 //=======================================================================================================//
 //=======================================================================================================//
 //============================= MEDIASOUP ===============================================================//
@@ -142,6 +128,7 @@ socket.on('disconnect', () => {
       console.log('-- createProducerTransport ---');
       const { transport, params } = await createTransport();
       addProducerTrasport(socket.id, transport);
+      
       transport.observer.on('close', () => {
         const id = socket.id;
         removeProducerTransport(id);
@@ -151,37 +138,129 @@ socket.on('disconnect', () => {
     });
 
     socket.on('connectProducerTransport', async (data, callback) => {
-      console.log('connectProducerTransport by socket ', socket);
+      console.log('connectProducerTransport by socket ', socket.id);
       const transport = getProducerTrasnport(socket.id);
-      await transport.connect({ dtlsParameters: data.dtlsParameters });
+      await transport.connect({ dtlsParameters: data.dtlsParameters, sctpParameters: data.sctpParameters });
       sendResponse({}, callback);
     });   
 
     socket.on('producedata', async (data, callback) => {
-      const { rtpParameters } = data;
-      console.log('-- produce ---');
+      const sctpStreamParameters  = data;
+
       const id = socket.id;
       const transport = getProducerTrasnport(id);
+
       if (!transport) {
         console.error('transport NOT EXIST for id=' + id);
         return;
       }
-      const producer = await transport.produceData({ rtpParameters });
-      //const producer = await transport.produce({ rtpParameters });
+
+      const producer = await transport.produceData(sctpStreamParameters);
+
       addProducer(id, producer);
       producer.observer.on('close', () => {
         console.log('producer closed');
       })
+
       sendResponse({ id: producer.id }, callback);
-  
-      // inform clients about new producer
-      console.log('--broadcast newProducer ---');
-      socket.broadcast.emit('newProducer', { socketId: id, producerId: producer.id });
+      console.log('--- Broadcast newProducer ---');
+      socket.broadcast.to(data.loginDetails.roomId).emit('newProducer', { socketId: id, producerId: producer.id, label: 'chat' })
     });
 
 //=============================================================================================//
 //=========================== CONSUMIDOR ======================================================//
 //=============================================================================================//
+// --- consumer ----
+  socket.on('createConsumerTransport', async (data, callback) => {
+    console.log('--- createConsumerTransport --- id=' + socket.id);
+    const { transport, params } = await createTransport();
+    addConsumerTrasport(socket.id, transport);
+    
+    transport.observer.on('close', () => {
+      const localId = socket.id;
+      removeConsumerSetDeep(localId);
+      removeConsumerTransport(id);
+    });
+
+    sendResponse(params, callback);
+  });
+
+  socket.on('connectConsumerTransport', async (data, callback) => {
+    console.log('-- connectConsumerTransport -- id=' + socket.id);
+    let transport = getConsumerTrasnport(socket.id);
+    if (!transport) {
+      console.error('transport NOT EXIST for id=' + socket.id);
+      return;
+    }
+    await transport.connect({ dtlsParameters: data.dtlsParameters, sctpParameters: data.sctpParameters });
+    sendResponse({}, callback);
+  });
+
+  socket.on('consume', async (data, callback) => {
+    console.error('-- ERROR: consume NOT SUPPORTED ---');
+    return;
+  });
+
+//==================================================================================================//
+//==================================================================================================//
+//==================================================================================================//
+
+socket.on('getCurrentProducers', async (data, callback) => {
+  const clientId = data.clientId;
+  console.log('-- getCurrentProducers for clientId=' + clientId);
+
+  const remoteChatIds = getRemoteIds(clientId, 'chat');
+  console.log('-- remoteChatIds:', remoteChatIds);
+
+  sendResponse({ remoteChatIds: remoteChatIds }, callback);
+});
+
+
+socket.on('consumeAdd', async (data, callback) => {
+    const localId = socket.id;
+    const label = data.label;
+    const sctpStreamParameters = data.sctpStreamParameters;
+    const remoteId = data.remoteId;
+    let transport = getConsumerTrasnport(localId);
+
+    if (!transport) {
+      console.error('transport NOT EXIST for id=' + localId);
+      return;
+    }
+
+    const producer = getProducer(remoteId, label);
+
+    if (!producer) {
+      console.error('producer NOT EXIST for remoteId=%s label=%s', remoteId, label);
+      return;
+    }
+
+    console.log('-- consumeAdd -- localId=%s label=%s', localId, label);
+    console.log('-- consumeAdd2 - localId=' + localId + ' remoteId=' + remoteId + ' label=' + label + ' producer.id =' + producer.id);
+    
+    const { consumer, params } = await createConsumer(transport, producer, sctpStreamParameters); // producer must exist before consume
+    
+    addConsumer(localId, remoteId, consumer, label); // TODO: comination of  local/remote id
+    console.log('addConsumer localId=%s, remoteId=%s, label=%s', localId, remoteId, label);
+    
+      consumer.observer.on('close', () => {
+        console.log('consumer closed ---');
+      })
+
+      consumer.on('dataproducerclose', () => {
+        console.log('consumer -- on.dataproducerclose');
+        
+        // -- notifica o cliente ---
+        socket.emit('dataproducerclose', { localId: localId, remoteId: remoteId, label: label });
+        
+        removeConsumer(localId, remoteId, label);
+        consumer.close();
+      });
+
+    console.log('-- consumer ready ---');
+    sendResponse(params, callback);
+  });
+
 
 
 })  //FIM DO SOCKET.IO
@@ -189,9 +268,9 @@ socket.on('disconnect', () => {
 //==================================================================================================//
 //============================= NEGOCIACAO SDP/SFU =================================================//
 //==================================================================================================//
+
   // --- send response to client ---
   function sendResponse(response, callback) {
-    //console.log('sendResponse() callback:', callback);
     callback(null, response);
   }
 
@@ -205,7 +284,34 @@ socket.on('disconnect', () => {
     }
 
 //==============================================================================================//
+//======================================= FUNCOES EXTRAS =======================================//
+//==============================================================================================//
 
+
+function getRemoteIds(clientId, label) {
+  let remoteIds = [];
+    for (const key in messageProducers) {
+      if (key !== clientId) {
+        remoteIds.push(key);
+      }
+    }
+  
+  return remoteIds;
+}
+
+function getProducer(id, label) {
+  if (label === 'chat') {
+    return messageProducers[id];
+  } else {
+    console.warn('UNKNOWN producer label=' + label);
+  }
+}
+
+//==============================================================================================//
+//==============================================================================================//
+//==============================================================================================//
+
+const mediasoup = require('mediasoup')
 const mediasoupOptions = {
   // Worker settings
   worker: {
@@ -219,11 +325,6 @@ const mediasoupOptions = {
       'rtp',
       'srtp',
       'rtcp',
-      // 'rtx',
-      // 'bwe',
-      // 'score',
-      // 'simulcast',
-      // 'svc'
     ],
   },
   // WebRtcTransport settings
@@ -234,8 +335,10 @@ const mediasoupOptions = {
     enableUdp: true,
     enableTcp: true,
     preferUdp: true,
+    enableSctp: true,
     maxIncomingBitrate: 1500000,
     initialAvailableOutgoingBitrate: 1000000,
+    //appData: { producing, consuming, sctpCapabilities },
   }
 };
 
@@ -244,12 +347,16 @@ let router = null;
 
 async function startWorker() {
   worker = await mediasoup.createWorker();
+  //router = await worker.createRouter( { appData: { info: 'message-data-producer' } });
   router = await worker.createRouter();
   console.log('-- mediasoup worker start. --')
 }
 
+startWorker();
+
 // --- multi-producers --
 let producerTransports = {};
+let messageProducers = {};
 
 function getProducerTrasnport(id) {
   return producerTransports[id];
@@ -266,9 +373,179 @@ function removeProducerTransport(id) {
 }
 
 
+function addProducer(id, producer, label) {
+  if (producer) {
+    messageProducers[id] = producer;
+  }else {
+    console.warn('Producer desconhecido');
+  }
+}
+
+function removeProducer(id, label) {
+  if (label === 'chat') {
+    delete messageProducers[id];
+    console.log('messageProducers count=' + Object.keys(messageProducers).length);
+  } else {
+    console.warn('UNKNOWN producer label=' + label);
+  }
+}
+
+
+// --- multi-consumers --
+let consumerTransports = {};
+let messageConsumers = {};
+
+function getConsumerTrasnport(id) {
+  return consumerTransports[id];
+}
+
+function addConsumerTrasport(id, transport) {
+  consumerTransports[id] = transport;
+  console.log('consumerTransports count=' + Object.keys(consumerTransports).length);
+}
+
+function removeConsumerTransport(id) {
+  delete consumerTransports[id];
+  console.log('consumerTransports count=' + Object.keys(consumerTransports).length);
+}
+
+
+function removeConsumer(localId, remoteId, label) {
+  const set = getConsumerSet(localId, label);
+  if (set) {
+    delete set[remoteId];
+    console.log('consumers label=%s count=%d', label, Object.keys(set).length);
+  }
+  else {
+    console.log('NO set for label=%s, localId=%s', label, localId);
+  }
+}
+
+async function createConsumer(transport, producer, sctpStreamParameters) {
+  let consumer = null;
+  /*if (!router.canConsume({ producerId: producer.id, rtpCapabilities})) {
+    console.error('can not consume');
+    return;
+  }*/
+  
+  consumer = await transport.consumeData({ // OK
+    producerId            : producer.id,
+    dataProducerId        : producer.id,
+    sctpStreamParameters,
+    label                 : producer.label,
+    //paused                : producer.label === 'chat',
+  }).catch(err => {
+    console.error('consume failed', err);
+    return;
+  });
+
+  //consumer.kind = producer.kind
+  //console.log('consumer.label ===== ',consumer.label)
+
+  return {
+    consumer: consumer,
+    params: {
+      producerId          : producer.id,
+      dataProducerId      : producer.id,
+      id                  : consumer.id,
+      label               : consumer.label,
+      sctpStreamParameters: consumer.sctpStreamParameters,
+      type                : consumer.type,
+      producerPaused      : consumer.producerPaused
+    }
+  };
+}
+
+
+function getConsumerSet(localId, label) {
+  if (label === 'chat') {
+    return messageConsumers[localId];
+  }else {
+    console.warn('WARN: getConsumerSet() UNKNWON label=%s', label);
+  }
+}
+
+function getConsumer(localId, remoteId, label) {
+  const set = getConsumerSet(localId, label);
+  if (set) {
+    return set[remoteId];
+  }
+  else {
+    return null;
+  }
+}
+
+function addConsumerSet(localId, set, label) {
+  if (label === 'chat') {
+    messageConsumers[localId] = set;
+  }else {
+    console.warn('WARN: addConsumerSet() UNKNWON label=%s', label);
+  }
+}
+
+function addConsumer(localId, remoteId, consumer, label) {
+  const set = getConsumerSet(localId, label);
+  if (set) {
+    set[remoteId] = consumer;
+    console.log('consumers label=%s count=%d', label, Object.keys(set).length);
+  }
+  else {
+    console.log('new set for label=%s, localId=%s', label, localId);
+    const newSet = {};
+    newSet[remoteId] = consumer;
+    addConsumerSet(localId, newSet, label);
+    console.log('consumers label=%s count=%d', label, Object.keys(newSet).length);
+  }
+}
+
+function removeConsumerSetDeep(localId) {
+  const set = getConsumerSet(localId, 'chat');
+  delete messageConsumers[localId];
+  if (set) {
+    for (const key in set) {
+      const consumer = set[key];
+      consumer.close();
+      delete set[key];
+    }
+
+    console.log('removeConsumerSetDeep message consumers count=' + Object.keys(set).length);
+  }
+}
+
+
+function cleanUpPeer(socket) {
+  const id = socket.id;
+  removeConsumerSetDeep(id);
+
+  const transport = getConsumerTrasnport(id);
+  if (transport) {
+    transport.close();
+    removeConsumerTransport(id);
+  }
+
+  const messageProducer = getProducer(id, 'chat');
+  if (messageProducer) {
+    messageProducer.close();
+    removeProducer(id, 'chat');
+  }
+
+  const producerTransport = getProducerTrasnport(id);
+  if (producerTransport) {
+    producerTransport.close();
+    removeProducerTransport(id);
+  }
+}
+
+//=============================================================================================//
+//============================ REFERENTE AO TRANSPORTE ========================================//
+//=============================================================================================//
+
+
 async function createTransport() {
   const transport = await router.createWebRtcTransport(mediasoupOptions.webRtcTransport);
   console.log('-- create transport id=' + transport.id);
+
+  //console.log('----- transport.sctpParameters -------- ', transport.sctpParameters)
 
   return {
     transport: transport,
@@ -276,7 +553,10 @@ async function createTransport() {
       id: transport.id,
       iceParameters: transport.iceParameters,
       iceCandidates: transport.iceCandidates,
-      dtlsParameters: transport.dtlsParameters
+      dtlsParameters: transport.dtlsParameters,
+      sctpParameters: transport.sctpParameters,
+      sctpCapabilities: transport.sctpCapabilities,
+      rtpCapabilities: transport.rtpCapabilities
     }
   };
 }
@@ -290,7 +570,3 @@ const port = process.env.PORT || 3000
 server.listen(port, () => {
   console.log(`Servidor Express escutando na porta ${port}`)
 })
-
-
-
-
