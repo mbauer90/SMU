@@ -14,3 +14,7 @@ Para utilizar executar os seguintes comandos
 #node server
 
 O servidor ficará ativo na porta 3000
+
+Observaçoes:
+- ChatBox funciona com 4 peers;
+- Jogo funcionando com 2 jogadores, os elementos do jogo precisam ser alterados para suportar ate 4 jogadores;
