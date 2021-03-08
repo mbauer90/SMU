@@ -56,8 +56,7 @@ function create ()
     // O PONG E COLISAO NO CENARIO
     paddle1 = createPaddle(0,game.config.height/2,this);
     paddle2 = createPaddle(game.config.width,game.config.height/2,this);
-    //paddle3 = createPaddle(15,game.config.height/2,this);
-    //paddle4 = createPaddle(game.config.width-15,game.config.height/2,this);
+
     // CRIA A BOLA DO JOGO
     ball = createBall(game.config.width/2,game.config.height/2,this);
 
@@ -70,10 +69,10 @@ function update (){
 
     if((loginDetails.numberOfClients==3) && (!paddle3) ){
         paddle3 = createPaddle(15,game.config.height/2,this);
-        this.physics.add.collider(paddle3, ball);
+        this.physics.add.collider(paddle3, ball);   //elementos de colisao
     }else if ((loginDetails.numberOfClients==4) && (!paddle4) ){
         paddle4 = createPaddle(game.config.width-15,game.config.height/2,this);
-        this.physics.add.collider(paddle4, ball);
+        this.physics.add.collider(paddle4, ball); //elementos de colisao
     }
 
     if (pongStarted){
@@ -82,10 +81,14 @@ function update (){
             //  Input Events
             comandoTeclado = this.input.keyboard.createCursorKeys();
 
-            if(masterPong){ //Verifica qual palheta irá controlar
+            if(loginDetails.posClient==1){ //Verifica qual palheta irá controlar
                 controlPaddle(paddle1,comandoTeclado);
-            }else{
+            }else if(loginDetails.posClient==2){
                 controlPaddle(paddle2,comandoTeclado);
+            }else if(loginDetails.posClient==3){
+                controlPaddle(paddle3,comandoTeclado);   
+            }else if(loginDetails.posClient==4){
+                controlPaddle(paddle4,comandoTeclado);
             }
             
             //  Colisão entre os paddles e bola
@@ -102,11 +105,20 @@ function update (){
                 sendNewScore();
             }
 
-            if (masterPong){
+            //if (masterPong){
+            if (loginDetails.posClient == 1){
                 sendGameStatus(paddle1);
-            } else {
-                sendPlayerPosition(paddle2);
+            }else{
+                sendPlayerPosition();
             }
+            
+            /*else if(loginDetails.posClient == 2){
+                sendPlayerPosition(paddle2);
+            }else if(loginDetails.posClient == 3){
+                sendPlayerPosition(paddle3);
+            }else if(loginDetails.posClient == 4){
+                sendPlayerPosition(paddle4);
+            }*/
         }
     }
 
@@ -209,6 +221,8 @@ function resetPosPaddle(){
     //paddle1.x = 0;
     if(paddle1){ paddle1.y = game.config.height/2; }
     if(paddle2){ paddle2.y = game.config.height/2; }
+    if(paddle3){ paddle3.y = game.config.height/2; }
+    if(paddle4){ paddle4.y = game.config.height/2; }
 }
 
 function launchBall(){
@@ -248,18 +262,25 @@ function sendGameStatus(player) { //O dono da sala envia a localizacao da bola e
     var objToSend = {
         'type': 'game_status',
         'ball': {'x': ball.x, 'y': ball.y},
-        'player': {'y': player.y}
+        'player1': {'y': player.y}
         //'player': {'y': paddle1.y},
     }
     messageDataProducer.send(JSON.stringify(objToSend));
 }
 
-function sendPlayerPosition(player) { //O visitante envia apenas sua localizacao
+//function sendPlayerPosition(player) { //O visitante envia apenas sua localizacao
+function sendPlayerPosition() { //O visitante envia apenas sua localizacao
     var objToSend = {
         'type': 'game_status',
-        'player': {'y': player.y}
-        //'player': {'y': paddle1.y}
+        'player2': {'y': paddle2.y}
     }
+    if(paddle3){
+        objToSend.player3 = {'y': paddle3.y}
+    }
+    if(paddle4){
+        objToSend.player4 = {'y': paddle4.y}
+    }
+    //console.log(objToSend)
     messageDataProducer.send(JSON.stringify(objToSend));
 }
 
@@ -276,6 +297,7 @@ function sendBeginGame() {
 
 function updatePosPong(msg) {
 
+    //console.log(msg)
     if (!masterPong && msg.ball){ 
         if(ball_launched){  //Evitar o valor negativo inicial de -300
             //ball.x = -msg.ball.x;
@@ -284,12 +306,47 @@ function updatePosPong(msg) {
         }
     }
     //LOGICA INVERSA SE SOU O MESTRE, MOVIMENTA O PADDLE 2
-    if(masterPong && msg.player){
-        paddle2.y = msg.player.y;
+    /*if(masterPong && msg.player2){
+        paddle2.y = msg.player2.y;
     } 
-    
-    if(!masterPong && msg.player){
-        paddle1.y = msg.player.y; 
+
+    if(!masterPong && msg.player1){
+        paddle1.y = msg.player1.y; 
+    }*/
+
+    //LOGICA DE MOVIMENTAR OS PADDLES DIFERENTES DO USUARIO ATUAL
+    if(loginDetails.posClient==1){
+        if(msg.player2){
+            paddle2.y = msg.player2.y;
+        }else if(msg.player3){
+            paddle3.y = msg.player3.y;
+        }else if(msg.player4){
+            paddle4.y = msg.player4.y;
+        }
+    }else if(loginDetails.posClient==2){
+        if(msg.player1){
+            paddle1.y = msg.player1.y;
+        }else if(msg.player3){
+            paddle3.y = msg.player3.y;
+        }else if(msg.player4){
+            paddle4.y = msg.player4.y;
+        }
+    }else if(loginDetails.posClient==3){
+        if(msg.player1){
+            paddle1.y = msg.player1.y;
+        }else if(msg.player2){
+            paddle2.y = msg.player2.y;
+        }else if(msg.player4){
+            paddle4.y = msg.player4.y;
+        }
+    }else if(loginDetails.posClient==4){
+        if(msg.player1){
+            paddle1.y = msg.player1.y;
+        }else if(msg.player2){
+            paddle2.y = msg.player2.y;
+        }else if(msg.player3){
+            paddle3.y = msg.player3.y;
+        }
     }
   
 }
@@ -316,10 +373,9 @@ function newIntervalGo(timeLeft) {
 //================================ CONTROLE GAME =========================================================//
 //========================================================================================================//
   
-  function checkMaster(){ //funcao para verificar o dono da sala, usado para definir as palhetas
+  function checkMaster(){ //funcao para verificar o dono da sala, usado para definir enviar o inicio do jogo para todos
 
-    console.log(loginDetails)
-
+    //console.log(loginDetails)
     if(loginDetails.isRoomCreator){
       masterPong = true
     } else{
