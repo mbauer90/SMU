@@ -66,7 +66,7 @@ function create ()
 }
 
 function update (){
-
+        
         if((loginDetails.numberOfClients>2) && (!paddle3)){
             paddle3 = createPaddle(15,game.config.height/2,this);
             this.physics.add.collider(paddle3, ball);   //elementos de colisao
@@ -78,6 +78,7 @@ function update (){
     
 
     if (pongStarted){
+        $('#idjogador').html('Jogador '+loginDetails.posClient);
         if(pongRunning){ //teste 
 
             //  Input Events
@@ -98,11 +99,11 @@ function update (){
             this.physics.add.collider(paddle2, ball);
 
             if(ball.body.blocked.left){
-                console.log('Time 2 Marcou!');
+                //console.log('Time 2 Marcou!');
                 newPoint(TimeB);
                 sendNewScore();
             } else if(ball.body.blocked.right){
-                console.log('Time 1 Marcou!');
+                //console.log('Time 1 Marcou!');
                 newPoint(TimeA);
                 sendNewScore();
             }
@@ -174,6 +175,9 @@ function verPlacar(){
             $('#displayEsperaReinicio').html('Aguarde o jogador 1 reiniciar o jogo');
             document.getElementById('displayEsperaReinicio').style.display = 'block';
 
+            if(loginDetails.posClient==1){
+                document.getElementById('buttonNovaPartida').style.display = 'block';
+            }    
             //game.state.stop();
             
         }else{
@@ -220,6 +224,20 @@ function controlPaddle (paddleControlado,comandoTeclado){
 }
 
 function resetPosPaddle(){
+    //console.log('======ATENCAO NO RESET PADDLE====== ', loginDetails.numberOfClients)
+    if(loginDetails.numberOfClients<4){
+        if(paddle4){
+            this.paddle4.destroy();
+            paddle4 = null;
+        }
+    }
+    if(loginDetails.numberOfClients<3){
+        if(paddle3){
+            this.paddle3.destroy();
+            paddle3 = null;
+        }
+    }
+
     //paddle1.x = 0;
     if(paddle1){ paddle1.y = game.config.height/2; }
     if(paddle2){ paddle2.y = game.config.height/2; }
@@ -286,13 +304,6 @@ function sendPlayerPosition() { //O visitante envia apenas sua localizacao
     messageDataProducer.send(JSON.stringify(objToSend));
 }
 
-function sendBeginGame() {
-    messageDataProducer.send(JSON.stringify({ 'type': 'begin_game'}))
-    pongStarted = true
-    checkMaster()
-    //newIntervalGo(5)
-  }
-
 //========================================================================================================//
 //================================FUNCOES NOVAS PARA CONTROLE DO GAME=====================================//
 //========================================================================================================//
@@ -307,14 +318,6 @@ function updatePosPong(msg) {
             ball.y = msg.ball.y;
         }
     }
-    //LOGICA INVERSA SE SOU O MESTRE, MOVIMENTA O PADDLE 2
-    /*if(masterPong && msg.player2){
-        paddle2.y = msg.player2.y;
-    } 
-
-    if(!masterPong && msg.player1){
-        paddle1.y = msg.player1.y; 
-    }*/
 
     //LOGICA DE MOVIMENTAR OS PADDLES DIFERENTES DO USUARIO ATUAL
     if(loginDetails.posClient==1){
@@ -360,7 +363,20 @@ function newIntervalGo(timeLeft) {
 //================================ CONTROLE GAME =========================================================//
 //========================================================================================================//
   
+
+  function sendBeginGame() {
+
+    messageDataProducer.send(JSON.stringify({ 'type': 'begin_game'}))
+    pongStarted = true
+    checkMaster()
+    //newIntervalGo(5)
+  }
+
   function checkMaster(){ //funcao para verificar o dono da sala, usado para definir enviar o inicio do jogo para todos
+
+    //============GARANTIR ELEMENTOS DEFAULT=======================//
+    valuesDefault()
+    //=============================================================//
 
     //console.log(loginDetails)
     if(loginDetails.isRoomCreator){
@@ -373,11 +389,21 @@ function newIntervalGo(timeLeft) {
     //console.log('checkMaster ',masterPong)
   }
 
-function stopGame() {
+function stopGame(buttonLogout = 0) {
 
     masterPong = false;
     pongRunning = false;
     pongStarted = false;
+
+    valuesDefault();
+
+    if((loginDetails.numberOfClients>1) && (!buttonLogout)){       //Permite que o jogo recomece
+        sendBeginGame();
+    }
+
+}
+
+function valuesDefault(){
 
     TimeA.score = 0;
     TimeB.score = 0;
@@ -385,10 +411,13 @@ function stopGame() {
     resetPosPaddle(); //POSICAO ORIGINAL padldles
     
     clearInterval(goInterval);
+    $('#idjogador').html('Jogador');
     $('#displayTime').html('Tempo');
     $('#placarTimeA').html('0');
     $('#placarTimeB').html('0');
     document.getElementById('displayEsperaReinicio').style.display = 'none';
+    document.getElementById('buttonNovaPartida').style.display = 'none';
 
     resetPosBall();
+
 }

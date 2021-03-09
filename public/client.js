@@ -15,6 +15,7 @@ const userInput = document.getElementById('user-input')
 const connectButton = document.getElementById('connect-button')
 const stopconnectButton = document.getElementById('stopconnect-button')
 const displayGame = document.getElementById('game')
+const buttonNovaPartida = document.getElementById('buttonNovaPartida')
 
 // Chat box
 const chat = document.getElementById('chat')
@@ -45,6 +46,7 @@ let loginDetails={roomId, userName, isRoomCreator, idSocket, numberOfClients, po
 connectButton.addEventListener('click', () => { joinRoom(userInput.value) })
 stopconnectButton.addEventListener('click', () => { leaveinRoom() })
 buttonsendText.addEventListener('click', () => { sendMessage() })
+buttonNovaPartida.addEventListener('click', () => { sendBeginGame() })
 
 // SOCKET EVENT CALLBACKS =====================================================
 socket.on('room_created', async (rcklogiDetails) => {
@@ -71,12 +73,16 @@ socket.on('enter_call', async (numberOfClients) => {
   loginDetails.numberOfClients = numberOfClients;
 })
 
-socket.on('leave_room', async (nisRoomCreator) => {
+socket.on('leave_room', async (atualizaDetails) => {
   console.log('Socket event callback: leave_room')
 
-  if(nisRoomCreator == loginDetails.userName){
+  if(atualizaDetails.nisRoomCreator == loginDetails.userName){
     loginDetails.isRoomCreator = true
   }
+
+  loginDetails.numberOfClients = atualizaDetails.numberOfClients //atualiza o numero de peers
+  loginDetails.posClient = atualizaDetails.listaClientes.findIndex(item => item.userName == loginDetails.userName)+1
+  //console.log(atualizaDetails.listaClientes.indexOf(item => item.userName == loginDetails.userName))
 
   //stopChatBox()
   stopGame()
@@ -143,6 +149,7 @@ function joinRoom(user) {
 }
 
 function leaveinRoom() {
+    loginDetails.numberOfClients--;
     buttonLogout()
     socket.emit('bye', loginDetails)
 }
@@ -174,6 +181,6 @@ function buttonLogout() {
   stopconnectButton.disabled = true
 
   stopChatBox()
-  stopGame()
+  stopGame(1)
 }
 

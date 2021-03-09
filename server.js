@@ -63,9 +63,13 @@ io.on('connection', (socket) => {
       socket.leave(loginDetails.roomId)
       socket.emit('ack_bye', loginDetails) //Informa que foi retirado com sucesso
 
-      if(!Clients.length == 0){
+      if(Clients.length != 0){
         var nisRoomCreator = Clients[Clients.findIndex(item => item.isRoomCreator == true)].userName
-        socket.broadcast.to(loginDetails.roomId).emit('leave_room',nisRoomCreator)
+        var atualizaDetails = { listaClientes: Clients, nisRoomCreator: nisRoomCreator, numberOfClients: Clients.length}
+        socket.broadcast.to(loginDetails.roomId).emit('leave_room',atualizaDetails)
+
+        //console.log(atualizaDetails.listaClientes.indexOf(item => item.userName == loginDetails.userName))
+        //console.log(atualizaDetails.listaClientes.findIndex(item => item.isRoomCreator == true))
       }
   }) 
 
@@ -92,7 +96,8 @@ socket.on('disconnect', () => {
 
         if(Clients.length != 0){
           var nisRoomCreator = Clients.find(x => x.isRoomCreator === true).userName
-          socket.broadcast.to('SMU').emit('leave_room',nisRoomCreator)
+          var atualizaDetails = { listaClientes: Clients, nisRoomCreator: nisRoomCreator, numberOfClients: Clients.length}
+          socket.broadcast.to('SMU').emit('leave_room',atualizaDetails)
         }
 
     }

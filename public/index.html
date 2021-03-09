@@ -33,11 +33,18 @@
 <div class="container">
 
     <div class="col-xs-8 col-md-2 col-md-push-2">
-        <label for="comment">Placar:</label>
+        <label for="comment" id="idjogador">Jogador</label> - <label for="comment">Placar:</label>
         <h4 id="score"><span id="placarTimeA">0</span> - <span id="placarTimeB">0</span></h4>
         <h4 id="displayTime" name="displayTime">Tempo</h4>
         <h4 id="displayEsperaReinicio"><span id="Reinicio" style="display: none">0</span></h4>
+
+        <label for="comment" id="displayEsperaReinicio" style="display: none">0</label> 
+        <label for="comment" id="buttonNovaPartida" style="display: none">
+                <button type="button" class="myButton">Nova Partida</button></label>
+
     </div>
+
+    <button type="button" class="myButton" id="buttonNovaPartida" style="display: none">Nova Partida</button>
 
     <!-- <div class="game" id="game" name="game" style="display: none"></div> -->
     <div class="game" id="game" name="game"></div>
