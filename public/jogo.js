@@ -67,6 +67,7 @@ function create ()
 
 function update (){
         
+    if(loginDetails){
         if((loginDetails.numberOfClients>2) && (!paddle3)){
             paddle3 = createPaddle(15,game.config.height/2,this);
             this.physics.add.collider(paddle3, ball);   //elementos de colisao
@@ -75,7 +76,7 @@ function update (){
             paddle4 = createPaddle(game.config.width-15,game.config.height/2,this);
             this.physics.add.collider(paddle4, ball); //elementos de colisao
         }
-    
+    }
 
     if (pongStarted){
         $('#idjogador').html('Jogador '+loginDetails.posClient);
