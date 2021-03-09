@@ -13,7 +13,7 @@ Para utilizar executar os seguintes comandos
 
 #node server
 
-O servidor ficará ativo na porta 3000
+O servidor ficará ativo na porta https://localhost:3000
 
 Observaçoes:
 - ChatBox funciona com até 4 peers;
