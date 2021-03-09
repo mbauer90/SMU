@@ -16,5 +16,7 @@ Para utilizar executar os seguintes comandos
 O servidor ficará ativo na porta 3000
 
 Observaçoes:
-- ChatBox funciona com 4 peers;
-- Jogo funcionando com 2 jogadores, os elementos do jogo precisam ser alterados para suportar ate 4 jogadores;
+- ChatBox funciona com até 4 peers;
+- Jogo funcionando com até 4 jogadores, os elementos foram alterados para atender este requisito;
+- No caso de nova conexão ou desconexão o jogo reinicia, iniciando a contagem para lançamento da bola;
+- Realizado alguns testes;
