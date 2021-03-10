@@ -8,6 +8,7 @@ async function createProdutor(){
     const params = await sendRequest('createProducerTransport', {});
     //console.log('transport params:', params);
     sendTransport = device.createSendTransport(params);
+    sendTransport.updateIceServers( iceServers )
     console.log('createSendTransport:', sendTransport);
 
     // --- join & start publish --
@@ -81,6 +82,7 @@ async function createConsumidor(){
     if (!consumerTransport) {
       const params = await sendRequest('createConsumerTransport', {});
       consumerTransport = device.createRecvTransport(params);
+      consumerTransport.updateIceServers( iceServers )
       console.log('consumerTransport:', consumerTransport);
 
     // --- join & start publish --
