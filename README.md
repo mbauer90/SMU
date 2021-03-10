@@ -19,4 +19,5 @@ Observaçoes:
 - ChatBox funciona com até 4 peers;
 - Jogo funcionando com até 4 jogadores, os elementos foram alterados para atender este requisito;
 - No caso de nova conexão ou desconexão o jogo reinicia, iniciando a contagem para lançamento da bola;
+- Aceitando a criação de Salas separadas, sendo necessario uma classe Room que possui a criacao de produtores e consumidores, em routers especificos
 - Realizado alguns testes;
