@@ -11,36 +11,40 @@ io.on('connection', (socket) => {
   socket.on('join', (loginDetails) => {
 
     const roomClients = io.sockets.adapter.rooms[loginDetails.roomId] || { length: 0 }
-    const numberOfClients = roomClients.length
+    //const numberOfClients = roomClients.length
 
     console.log(`Chegou o join do user ${loginDetails.userName}`)
     // These events are emitted only to the sender socket.
 
-    if (numberOfClients == 0) {
+    if (roomClients.length == 0) {
       console.log(`Criando sala ${loginDetails.roomId}, o user ${loginDetails.userName} emitiu room_created`)
       
       loginDetails.isRoomCreator = true //Seta como criador da sala
       loginDetails.idSocket = socket.id
-      loginDetails.numberOfClients = numberOfClients+1
-      loginDetails.posClient = numberOfClients+1
+      loginDetails.numberOfClients = roomClients.length+1
+      loginDetails.posClient = roomClients.length+1
       Clients.push(loginDetails)
       console.log(Clients)
 
+      prepareRoom(socket,loginDetails)
       socket.join(loginDetails.roomId)
+      //setRoomname(loginDetails.roomId);
       socket.emit('room_created', loginDetails)
 
-    } else if (numberOfClients <= 3) {
+    } else if (roomClients.length <= 3) {
       console.log(`Entrou na sala ${loginDetails.roomId}, o user ${loginDetails.userName} emitiu room_joined`)
 
       loginDetails.isRoomCreator = false
       loginDetails.idSocket = socket.id
-      loginDetails.numberOfClients = numberOfClients+1
-      loginDetails.posClient = numberOfClients+1
+      loginDetails.numberOfClients = roomClients.length+1
+      loginDetails.posClient = roomClients.length+1
       Clients.push(loginDetails)
 
       console.log(Clients)
-
+      prepareRoom(socket,loginDetails)
       socket.join(loginDetails.roomId)
+      //socket.join(loginDetails.roomId)
+      //setRoomname(loginDetails.roomId)
       socket.emit('room_joined', loginDetails)
 
     } else {
@@ -51,21 +55,22 @@ io.on('connection', (socket) => {
 
   socket.on('bye', (loginDetails) => {
       console.log(`${loginDetails.userName} Criador: ${loginDetails.isRoomCreator} saiu da sala ${loginDetails.roomId}, emitiu leave_room`)
-      cleanUpPeer(socket);
+      cleanUpPeer(loginDetails.roomId,socket);
 
       Clients.splice(Clients.findIndex(item => item.userName === loginDetails.userName), 1) //Retira o cliente da lista
+      let numberOfClientsRoom = Clients.filter(item => item.roomId === loginDetails.roomId);
 
-      if((loginDetails.isRoomCreator) && Clients.length > 0){ //Se for o criador
+      if((loginDetails.isRoomCreator) && numberOfClientsRoom.length > 0){ //Se for o criador
           Clients[0].isRoomCreator = true          
           console.log(Clients)
       }
 
       socket.leave(loginDetails.roomId)
       socket.emit('ack_bye', loginDetails) //Informa que foi retirado com sucesso
-
-      if(Clients.length != 0){
+      
+      if(numberOfClientsRoom.length != 0){
         var nisRoomCreator = Clients[Clients.findIndex(item => item.isRoomCreator == true)].userName
-        var atualizaDetails = { listaClientes: Clients, nisRoomCreator: nisRoomCreator, numberOfClients: Clients.length}
+        var atualizaDetails = { listaClientes: Clients, nisRoomCreator: nisRoomCreator, numberOfClients: numberOfClientsRoom.length}
         socket.broadcast.to(loginDetails.roomId).emit('leave_room',atualizaDetails)
 
         //console.log(atualizaDetails.listaClientes.indexOf(item => item.userName == loginDetails.userName))
@@ -82,22 +87,27 @@ io.on('connection', (socket) => {
 //=======================================================================================================//
 socket.on('disconnect', () => {
     if(Clients.find(x => x.idSocket === socket.id)){  //EVITA O ERRO DE OBJETO INDEFINIDO
-        cleanUpPeer(socket);
+
+        let disconnectRoom = Clients.find(x => x.idSocket === socket.id).roomId
+        cleanUpPeer(disconnectRoom,socket)
 
         var userLeave = Clients.find(x => x.idSocket === socket.id)
         Clients.splice(Clients.findIndex(item => item.idSocket === socket.id), 1) //Retira o cliente da lista
-        
-        if((userLeave.isRoomCreator) && Clients.length > 0){ //Se for o criador 
+        let numberOfClientsRoom = Clients.filter(item => item.roomId === disconnectRoom);
+
+        if((userLeave.isRoomCreator) && numberOfClientsRoom.length > 0){ //Se for o criador 
             Clients[0].isRoomCreator = true          
         }
 
-        socket.leave('SMU')
+        socket.leave(disconnectRoom)
+        //socket.leave('SMU')
         //socket.emit('ack_bye', userLeave) //Informa que foi retirado com sucesso
 
-        if(Clients.length != 0){
+        if(numberOfClientsRoom.length != 0){
           var nisRoomCreator = Clients.find(x => x.isRoomCreator === true).userName
-          var atualizaDetails = { listaClientes: Clients, nisRoomCreator: nisRoomCreator, numberOfClients: Clients.length}
-          socket.broadcast.to('SMU').emit('leave_room',atualizaDetails)
+          var atualizaDetails = { listaClientes: Clients, nisRoomCreator: nisRoomCreator, numberOfClients: numberOfClientsRoom.length}
+          //socket.broadcast.to('SMU').emit('leave_room',atualizaDetails)
+          socket.broadcast.to(disconnectRoom).emit('leave_room',atualizaDetails)
         }
 
     }
@@ -106,7 +116,8 @@ socket.on('disconnect', () => {
 //============================= BROADSCAST DE NEGOCIACAO/SDP ============================================//
     socket.on('enter_call', function (loginDetails) {
       console.log(`Broadcast enter_call na sala ${loginDetails.roomId}`)
-      socket.broadcast.to(loginDetails.roomId).emit('enter_call',Clients.length)
+      let numberOfClientsRoom = Clients.filter(item => item.roomId === loginDetails.roomId);
+      socket.broadcast.to(loginDetails.roomId).emit('enter_call',numberOfClientsRoom.length)
     })
   
 //=======================================================================================================//
@@ -130,30 +141,36 @@ socket.on('disconnect', () => {
 //=============================================================================================//
 
     socket.on('createProducerTransport', async (data, callback) => {
-      console.log('-- createProducerTransport ---');
-      const { transport, params } = await createTransport();
-      addProducerTrasport(socket.id, transport);
+      const roomName = getRoomname(socket);
+
+      console.log('-- createProducerTransport ---room=%s', roomName);
+      const { transport, params } = await createTransport(roomName);
+      addProducerTrasport(roomName, socket.id, transport);
       
       transport.observer.on('close', () => {
         const id = socket.id;
-        removeProducerTransport(id);
+        removeProducerTransport(roomName, id);
       });
       
       sendResponse(params, callback);
     });
 
     socket.on('connectProducerTransport', async (data, callback) => {
-      console.log('connectProducerTransport by socket ', socket.id);
-      const transport = getProducerTrasnport(socket.id);
+      //console.log('connectProducerTransport by socket ', socket.id);
+      const roomName = getRoomname(socket);
+      const transport = getProducerTrasnport(roomName,socket.id);
       await transport.connect({ dtlsParameters: data.dtlsParameters, sctpParameters: data.sctpParameters });
       sendResponse({}, callback);
     });   
 
     socket.on('producedata', async (data, callback) => {
+      const roomName = getRoomname(socket);
+      const label = data.label;
       const sctpStreamParameters  = data;
-
+      console.log('-- producedata --- label=' + label);
       const id = socket.id;
-      const transport = getProducerTrasnport(id);
+      const transport = getProducerTrasnport(roomName,id);
+      
 
       if (!transport) {
         console.error('transport NOT EXIST for id=' + id);
@@ -162,14 +179,21 @@ socket.on('disconnect', () => {
 
       const producer = await transport.produceData(sctpStreamParameters);
 
-      addProducer(id, producer);
+      addProducer(roomName,id, producer, label);
       producer.observer.on('close', () => {
         console.log('producer closed');
       })
 
       sendResponse({ id: producer.id }, callback);
-      console.log('--- Broadcast newProducer ---');
-      socket.broadcast.to(data.loginDetails.roomId).emit('newProducer', { socketId: id, producerId: producer.id, label: 'chat' })
+
+      if (roomName) {
+        console.log('--broadcast room=%s newProducer ---', roomName);
+        socket.broadcast.to(roomName).emit('newProducer', { socketId: id, producerId: producer.id, label: producer.label });
+      }
+      else {
+        console.log('--broadcast newProducer ---');
+        socket.broadcast.emit('newProducer', { socketId: id, producerId: producer.id, label: producer.label });
+      }
     });
 
 //=============================================================================================//
@@ -177,22 +201,24 @@ socket.on('disconnect', () => {
 //=============================================================================================//
 // --- consumer ----
   socket.on('createConsumerTransport', async (data, callback) => {
+    const roomName = getRoomname(socket);
     console.log('--- createConsumerTransport --- id=' + socket.id);
-    const { transport, params } = await createTransport();
-    addConsumerTrasport(socket.id, transport);
+    const { transport, params } = await createTransport(roomName);
+    addConsumerTrasport(roomName, socket.id, transport);
     
     transport.observer.on('close', () => {
       const localId = socket.id;
-      removeConsumerSetDeep(localId);
-      removeConsumerTransport(id);
+      removeConsumerSetDeep(roomName,localId);
+      removeConsumerTransport(roomName,id);
     });
 
     sendResponse(params, callback);
   });
 
   socket.on('connectConsumerTransport', async (data, callback) => {
+    const roomName = getRoomname(socket);
     console.log('-- connectConsumerTransport -- id=' + socket.id);
-    let transport = getConsumerTrasnport(socket.id);
+    let transport = getConsumerTrasnport(roomName,socket.id);
     if (!transport) {
       console.error('transport NOT EXIST for id=' + socket.id);
       return;
@@ -211,10 +237,11 @@ socket.on('disconnect', () => {
 //==================================================================================================//
 
 socket.on('getCurrentProducers', async (data, callback) => {
+  const roomName = getRoomname(socket);
   const clientId = data.clientId;
   console.log('-- getCurrentProducers for clientId=' + clientId);
 
-  const remoteChatIds = getRemoteIds(clientId, 'chat');
+  const remoteChatIds = getRemoteIds(roomName, clientId, 'chat');
   console.log('-- remoteChatIds:', remoteChatIds);
 
   sendResponse({ remoteChatIds: remoteChatIds }, callback);
@@ -222,18 +249,19 @@ socket.on('getCurrentProducers', async (data, callback) => {
 
 
 socket.on('consumeAdd', async (data, callback) => {
+    const roomName = getRoomname(socket);
     const localId = socket.id;
     const label = data.label;
     const sctpStreamParameters = data.sctpStreamParameters;
     const remoteId = data.remoteId;
-    let transport = getConsumerTrasnport(localId);
+    let transport = getConsumerTrasnport(roomName,localId);
 
     if (!transport) {
       console.error('transport NOT EXIST for id=' + localId);
       return;
     }
 
-    const producer = getProducer(remoteId, label);
+    const producer = getProducer(roomName,remoteId, label);
 
     if (!producer) {
       console.error('producer NOT EXIST for remoteId=%s label=%s', remoteId, label);
@@ -243,9 +271,9 @@ socket.on('consumeAdd', async (data, callback) => {
     console.log('-- consumeAdd -- localId=%s label=%s', localId, label);
     console.log('-- consumeAdd2 - localId=' + localId + ' remoteId=' + remoteId + ' label=' + label + ' producer.id =' + producer.id);
     
-    const { consumer, params } = await createConsumer(transport, producer, sctpStreamParameters); // producer must exist before consume
+    const { consumer, params } = await createConsumer(roomName,transport, producer, sctpStreamParameters); // producer must exist before consume
     
-    addConsumer(localId, remoteId, consumer, label); // TODO: comination of  local/remote id
+    addConsumer(roomName, localId, remoteId, consumer, label); // TODO: comination of  local/remote id
     console.log('addConsumer localId=%s, remoteId=%s, label=%s', localId, remoteId, label);
     
       consumer.observer.on('close', () => {
@@ -258,7 +286,7 @@ socket.on('consumeAdd', async (data, callback) => {
         // -- notifica o cliente ---
         socket.emit('dataproducerclose', { localId: localId, remoteId: remoteId, label: label });
         
-        removeConsumer(localId, remoteId, label);
+        removeConsumer(roomName,localId, remoteId, label);
         consumer.close();
       });
 
@@ -284,33 +312,257 @@ socket.on('consumeAdd', async (data, callback) => {
       callback(error.toString(), null);
     }
   
-    function sendback(socket, message) {
-      socket.emit('message', message);
+    function getRoomname(socket) {
+      //console.log(socket.rooms)
+      let roomname = Object.keys(socket.rooms).filter(function(item) {
+        return item !== socket.id;
+      });
+      //console.log(roomname)
+
+      //const room = socket.roomname;
+      const room = roomname;
+      return room;
     }
 
 //==============================================================================================//
 //======================================= FUNCOES EXTRAS =======================================//
 //==============================================================================================//
 
+async function prepareRoom(socket, data){
+  const roomId = data.roomId;
+  const existRoom = Room.getRoom(roomId);
+  if (existRoom) {
+    console.log('--- use exist room. roomId=' + roomId);
+  } else {
+    console.log('--- create new room. roomId=' + roomId);
+    const room = await setupRoom(roomId);
+  }
 
-function getRemoteIds(clientId, label) {
-  let remoteIds = [];
-    for (const key in messageProducers) {
-      if (key !== clientId) {
-        remoteIds.push(key);
-      }
-    }
-  
-  return remoteIds;
+  // --- socket.io room ---
+  //socket.join(roomId);
+  //setRoomname(socket, roomId);
 }
 
-function getProducer(id, label) {
-  if (label === 'chat') {
-    return messageProducers[id];
-  } else {
-    console.warn('UNKNOWN producer label=' + label);
+
+async function setupRoom(name) {
+  const room = new Room(name);
+  const router = await worker.createRouter();
+  router.roomname = name;
+
+  router.observer.on('close', () => {
+    console.log('-- router closed. room=%s', name);
+  });
+  
+  router.observer.on('newtransport', transport => {
+    console.log('-- router newtransport. room=%s', name);
+  });
+
+  room.router = router;
+  Room.addRoom(room, name);
+  return room;
+}
+
+function cleanUpPeer(roomname,socket) {
+  const id = socket.id;
+  console.log('Chamou o CleanUpPeer', id)
+  console.log('Chamou o CleanUpPeer', roomname)
+  removeConsumerSetDeep(roomname,id);
+
+  const transport = getConsumerTrasnport(roomname,id);
+  if (transport) {
+    transport.close();
+    removeConsumerTransport(roomname,id);
+  }
+
+  const messageProducer = getProducer(roomname,id, 'chat');
+  if (messageProducer) {
+    messageProducer.close();
+    removeProducer(roomname,id, 'chat');
+  }
+
+  const producerTransport = getProducerTrasnport(roomname,id);
+  if (producerTransport) {
+    producerTransport.close();
+    removeProducerTransport(roomname,id);
   }
 }
+
+//==============================================================================================//
+//==============================================================================================//
+//==============================================================================================//
+
+
+class Room {
+  constructor(name) {
+    this.name = name;
+    this.producerTransports = {};
+    this.messageProducers = {};
+
+    this.consumerTransports = {};
+    this.messageConsumerSets = {};
+
+    this.router = null;
+  }
+
+  getProducerTrasnport(id) {
+    console.log('ROOM getProducerTransport')
+    return this.producerTransports[id];
+  }
+
+  addProducerTrasport(id, transport) {
+    this.producerTransports[id] = transport;
+    console.log('room=%s producerTransports count=%d', this.name, Object.keys(this.producerTransports).length);
+  }
+
+  removeProducerTransport(id) {
+    delete this.producerTransports[id];
+    console.log('room=%s producerTransports count=%d', this.name, Object.keys(this.producerTransports).length);
+  }
+
+  getProducer(id, label) {
+    if (label === 'chat') {
+      return this.messageProducers[id];
+    }else {
+      console.warn('ROOM UNKNOWN producer label=' + label);
+    }
+  }
+
+  getRemoteIds(clientId, label) {
+    let remoteIds = [];
+    if (label === 'chat') {
+      for (const key in this.messageProducers) {
+        if (key !== clientId) {
+          remoteIds.push(key);
+        }
+      }
+    }
+    return remoteIds;
+  }
+
+  addProducer(id, producer, label) {
+    if (label === 'chat') {
+      this.messageProducers[id] = producer;
+      console.log('room=%s messageProducers count=%d', this.name, Object.keys(this.messageProducers).length);
+    }else {
+      console.warn('ROOM addProducer UNKNOWN producer label=' + label);
+    }
+  }
+
+  removeProducer(id, label) {
+    if (label === 'chat') {
+      delete this.messageProducers[id];
+      console.log('messageProducers count=' + Object.keys(this.messageProducers).length);
+    }else {
+      console.warn('ROOM UNKNOWN producer label=' + label);
+    }
+  }
+
+  getConsumerTrasnport(id) {
+    return this.consumerTransports[id];
+  }
+
+  addConsumerTrasport(id, transport) {
+    this.consumerTransports[id] = transport;
+    console.log('room=%s add consumerTransports count=%d', this.name, Object.keys(this.consumerTransports).length);
+  }
+
+  removeConsumerTransport(id) {
+    delete this.consumerTransports[id];
+    console.log('room=%s remove consumerTransports count=%d', this.name, Object.keys(this.consumerTransports).length);
+  }
+
+  getConsumerSet(localId, label) {
+    if (label === 'chat') {
+      return this.messageConsumerSets[localId];
+    }else {
+      console.warn('WARN: getConsumerSet() UNKNWON label=%s', label);
+    }
+  }
+
+  addConsumerSet(localId, set, label) {
+    if (label === 'chat') {
+      this.messageConsumerSets[localId] = set;
+    } else {
+      console.warn('WARN: addConsumerSet() UNKNWON label=%s', label);
+    }
+  }
+
+  removeConsumerSetDeep(localId) {
+    const messageSet = this.getConsumerSet(localId, 'chat');
+    delete this.messageConsumerSets[localId];
+    if (messageSet) {
+      for (const key in messageSet) {
+        const consumer = messageSet[key];
+        consumer.close();
+        delete messageSet[key];
+      }
+
+      console.log('room=%s removeConsumerSetDeep message consumers count=%d', this.name, Object.keys(messageSet).length);
+    }
+  }
+
+  getConsumer(localId, remoteId, label) {
+    const set = this.getConsumerSet(localId, label);
+    if (set) {
+      return set[remoteId];
+    }
+    else {
+      return null;
+    }
+  }
+
+
+  addConsumer(localId, remoteId, consumer, label) {
+    const set = this.getConsumerSet(localId, label);
+    if (set) {
+      set[remoteId] = consumer;
+      console.log('room=%s consumers label=%s count=%d', this.name, label, Object.keys(set).length);
+    }
+    else {
+      console.log('room=%s new set for label=%s, localId=%s', this.name, label, localId);
+      const newSet = {};
+      newSet[remoteId] = consumer;
+      this.addConsumerSet(localId, newSet, label);
+      console.log('room=%s consumers label=%s count=%d', this.name, label, Object.keys(newSet).length);
+    }
+  }
+
+  removeConsumer(localId, remoteId, label) {
+    const set = this.getConsumerSet(localId, label);
+    if (set) {
+      delete set[remoteId];
+      console.log('room=%s consumers label=%s count=%d', this.name, label, Object.keys(set).length);
+    }
+    else {
+      console.log('NO set for room=%s label=%s, localId=%s', this.name, label, localId);
+    }
+  }
+
+  // --- static methtod ---
+  static staticInit() {
+    rooms = {};
+  }
+
+  static addRoom(room, name) {
+    Room.rooms[name] = room;
+    console.log('static addRoom. name=%s', room.name);
+    //console.log('static addRoom. name=%s, rooms:%O', room.name, room);
+  }
+
+  static getRoom(name) {
+    return Room.rooms[name];
+  }
+
+  static removeRoom(name) {
+    delete Room.rooms[name];
+  }
+}
+
+// -- static member --
+Room.rooms = {};
+
+// --- default room ---
+let defaultRoom = null;
 
 //==============================================================================================//
 //==============================================================================================//
@@ -361,84 +613,197 @@ async function startWorker() {
   worker = await mediasoup.createWorker();
   //router = await worker.createRouter( { appData: { info: 'message-data-producer' } });
   router = await worker.createRouter();
-  console.log('-- mediasoup worker start. --')
+  defaultRoom = await setupRoom('_default_room');
+  console.log('-- mediasoup worker start. -- room:', defaultRoom.name);
 }
 
 startWorker();
 
-// --- multi-producers --
-let producerTransports = {};
-let messageProducers = {};
 
-function getProducerTrasnport(id) {
-  return producerTransports[id];
-}
-
-function addProducerTrasport(id, transport) {
-  producerTransports[id] = transport;
-  console.log('producerTransports count=' + Object.keys(producerTransports).length);
-}
-
-function removeProducerTransport(id) {
-  delete producerTransports[id];
-  console.log('producerTransports count=' + Object.keys(producerTransports).length);
-}
-
-
-function addProducer(id, producer, label) {
-  if (producer) {
-    messageProducers[id] = producer;
-  }else {
-    console.warn('Producer desconhecido');
+function getProducerTrasnport(roomname,id) {
+  if (roomname) {
+    console.log('=== getProducerTrasnport use room=%s ===', roomname);
+    const room = Room.getRoom(roomname);
+    return room.getProducerTrasnport(id);
+  }
+  else {
+    console.log('=== getProducerTrasnport use defaultRoom room=%s ===', roomname);
+    return defaultRoom.getProducerTrasnport(id);
   }
 }
 
-function removeProducer(id, label) {
-  if (label === 'chat') {
-    delete messageProducers[id];
-    console.log('messageProducers count=' + Object.keys(messageProducers).length);
-  } else {
-    console.warn('UNKNOWN producer label=' + label);
+function addProducerTrasport(roomname,id, transport) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    room.addProducerTrasport(id, transport);
+    console.log('=== addProducerTrasport use room=%s ===', roomname);
+  }
+  else {
+    defaultRoom.addProducerTrasport(id, transport);
+    console.log('=== addProducerTrasport use defaultRoom room=%s ===', roomname);
+  }
+}
+
+function removeProducerTransport(roomname,id) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    room.removeProducerTransport(id);
+  }
+  else {
+    defaultRoom.removeProducerTransport(id);
+  }
+}
+
+function getProducer(roomname, id, label) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    return room.getProducer(id, label);
+  }
+  else {
+    return defaultRoom.getProducer(id, label);
+  }
+}
+
+
+function getRemoteIds(roomname, clientId, label) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    return room.getRemoteIds(clientId, label);
+  }
+  else {
+    return defaultRoom.getRemoteIds(clientId, label);
+  }
+}
+
+
+
+
+function addProducer(roomname,id, producer, label) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    room.addProducer(id, producer, label);
+    console.log('=== addProducer use room=%s ===', roomname);
+  }
+  else {
+    defaultRoom.addProducer(id, producer, label);
+    console.log('=== addProducer use defaultRoom room=%s ===', roomname);
+  }
+}
+
+function removeProducer(roomname, id, label) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    room.removeProducer(id, label);
+  }
+  else {
+    defaultRoom.removeProducer(id, label);
   }
 }
 
 
 // --- multi-consumers --
-let consumerTransports = {};
-let messageConsumers = {};
+//let consumerTransports = {};
+// /let messageConsumers = {};
 
-function getConsumerTrasnport(id) {
-  return consumerTransports[id];
-}
-
-function addConsumerTrasport(id, transport) {
-  consumerTransports[id] = transport;
-  console.log('consumerTransports count=' + Object.keys(consumerTransports).length);
-}
-
-function removeConsumerTransport(id) {
-  delete consumerTransports[id];
-  console.log('consumerTransports count=' + Object.keys(consumerTransports).length);
-}
-
-
-function removeConsumer(localId, remoteId, label) {
-  const set = getConsumerSet(localId, label);
-  if (set) {
-    delete set[remoteId];
-    console.log('consumers label=%s count=%d', label, Object.keys(set).length);
+function getConsumerTrasnport(roomname,id) {
+  if (roomname) {
+    console.log('=== getConsumerTrasnport use room=%s ===', roomname);
+    const room = Room.getRoom(roomname);
+    return room.getConsumerTrasnport(id);
   }
   else {
-    console.log('NO set for label=%s, localId=%s', label, localId);
+    console.log('=== getConsumerTrasnport use defaultRoom room=%s ===', roomname);
+    return defaultRoom.getConsumerTrasnport(id);
   }
 }
 
-async function createConsumer(transport, producer, sctpStreamParameters) {
-  let consumer = null;
-  /*if (!router.canConsume({ producerId: producer.id, rtpCapabilities})) {
+function addConsumerTrasport(roomname, id, transport) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    room.addConsumerTrasport(id, transport);
+    console.log('=== addConsumerTrasport use room=%s ===', roomname);
+  }
+  else {
+    defaultRoom.addConsumerTrasport(id, transport);
+    console.log('=== addConsumerTrasport use defaultRoom room=%s ===', roomname);
+  }
+}
+
+function removeConsumerTransport(roomname, id) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    room.removeConsumerTransport(id);
+  }
+  else {
+    defaultRoom.removeConsumerTransport(id);
+  }
+}
+
+
+function getConsumer(roomname, localId, remoteId, label) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    return room.getConsumer(localId, remoteId, label);
+  }
+  else {
+    return defaultRoom.getConsumer(localId, remoteId, label);
+  }
+}
+
+function addConsumer(roomname, localId, remoteId, consumer, label) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    room.addConsumer(localId, remoteId, consumer, label);
+    console.log('=== addConsumer use room=%s ===', roomname);
+  }
+  else {
+    defaultRoom.addConsumer(localId, remoteId, consumer, label);
+    console.log('=== addConsumer use defaultRoom room=%s ===', roomname);
+  }
+}
+
+function removeConsumer(roomname, localId, remoteId, label) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    room.removeConsumer(localId, remoteId, label);
+  }
+  else {
+    defaultRoom.removeConsumer(localId, remoteId, label);
+  }
+}
+
+function removeConsumerSetDeep(roomname, localId) {
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    room.removeConsumerSetDeep(localId);
+  }
+  else {
+    defaultRoom.removeConsumerSetDeep(localId);
+  }
+}
+
+async function createConsumer(roomname, transport, producer, sctpStreamParameters) {
+  let router = null;
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    router = room.router;
+  }
+  else {
+    router = defaultRoom.router;
+  }
+
+
+  /*if (!router.canConsume(
+    {
+      producerId: producer.id,
+      rtpCapabilities,
+    })
+  ) {
     console.error('can not consume');
     return;
   }*/
+
+  let consumer = null;
   
   consumer = await transport.consumeData({ // OK
     producerId            : producer.id,
@@ -451,7 +816,6 @@ async function createConsumer(transport, producer, sctpStreamParameters) {
     return;
   });
 
-  //consumer.kind = producer.kind
   //console.log('consumer.label ===== ',consumer.label)
 
   return {
@@ -468,96 +832,22 @@ async function createConsumer(transport, producer, sctpStreamParameters) {
   };
 }
 
-
-function getConsumerSet(localId, label) {
-  if (label === 'chat') {
-    return messageConsumers[localId];
-  }else {
-    console.warn('WARN: getConsumerSet() UNKNWON label=%s', label);
-  }
-}
-
-function getConsumer(localId, remoteId, label) {
-  const set = getConsumerSet(localId, label);
-  if (set) {
-    return set[remoteId];
-  }
-  else {
-    return null;
-  }
-}
-
-function addConsumerSet(localId, set, label) {
-  if (label === 'chat') {
-    messageConsumers[localId] = set;
-  }else {
-    console.warn('WARN: addConsumerSet() UNKNWON label=%s', label);
-  }
-}
-
-function addConsumer(localId, remoteId, consumer, label) {
-  const set = getConsumerSet(localId, label);
-  if (set) {
-    set[remoteId] = consumer;
-    console.log('consumers label=%s count=%d', label, Object.keys(set).length);
-  }
-  else {
-    console.log('new set for label=%s, localId=%s', label, localId);
-    const newSet = {};
-    newSet[remoteId] = consumer;
-    addConsumerSet(localId, newSet, label);
-    console.log('consumers label=%s count=%d', label, Object.keys(newSet).length);
-  }
-}
-
-function removeConsumerSetDeep(localId) {
-  const set = getConsumerSet(localId, 'chat');
-  delete messageConsumers[localId];
-  if (set) {
-    for (const key in set) {
-      const consumer = set[key];
-      consumer.close();
-      delete set[key];
-    }
-
-    console.log('removeConsumerSetDeep message consumers count=' + Object.keys(set).length);
-  }
-}
-
-
-function cleanUpPeer(socket) {
-  const id = socket.id;
-  removeConsumerSetDeep(id);
-
-  const transport = getConsumerTrasnport(id);
-  if (transport) {
-    transport.close();
-    removeConsumerTransport(id);
-  }
-
-  const messageProducer = getProducer(id, 'chat');
-  if (messageProducer) {
-    messageProducer.close();
-    removeProducer(id, 'chat');
-  }
-
-  const producerTransport = getProducerTrasnport(id);
-  if (producerTransport) {
-    producerTransport.close();
-    removeProducerTransport(id);
-  }
-}
-
 //=============================================================================================//
 //============================ REFERENTE AO TRANSPORTE ========================================//
 //=============================================================================================//
 
 
-async function createTransport() {
+async function createTransport(roomname) {
+  let router = null;
+  if (roomname) {
+    const room = Room.getRoom(roomname);
+    router = room.router;
+  }
+  else {
+    router = defaultRoom.router;
+  }
   const transport = await router.createWebRtcTransport(mediasoupOptions.webRtcTransport);
-  console.log('-- create transport id=' + transport.id);
-
-  //console.log('----- transport.sctpParameters -------- ', transport.sctpParameters)
+  console.log('-- create transport room=%s id=%s', roomname, transport.id);
 
   return {
     transport: transport,

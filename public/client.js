@@ -1,17 +1,7 @@
-// Free public STUN servers provided by Google.
-const iceServers = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-  ],
-}
-
 // DOM elements.
 //const roomSelectionContainer = document.getElementById('room-selection-container')
 const userInput = document.getElementById('user-input')
+const roomName = document.getElementById('user-room')
 const connectButton = document.getElementById('connect-button')
 const stopconnectButton = document.getElementById('stopconnect-button')
 const displayGame = document.getElementById('game')
@@ -43,7 +33,7 @@ let messageConsumers = {};
 let loginDetails={roomId, userName, isRoomCreator, idSocket, numberOfClients, posClient} 
 
 // BUTTON LISTENER ============================================================
-connectButton.addEventListener('click', () => { joinRoom(userInput.value) })
+connectButton.addEventListener('click', () => { joinRoom(userInput.value,roomName.value) })
 stopconnectButton.addEventListener('click', () => { leaveinRoom() })
 buttonsendText.addEventListener('click', () => { sendMessage() })
 buttonNovaPartida.addEventListener('click', () => { sendBeginGame() })
@@ -137,11 +127,12 @@ socket.on('dataproducerclose', function (message) {
 // ========================================= FUNCTIONS ===================================================//
 //========================================================================================================//
 
-function joinRoom(user) {
-  if (user === '') {
-    alert('Informe o nome do usuario')
+function joinRoom(user,room) {
+  if ((user === '') || (room === '')) {
+    alert('Informe o usuario e a sala')
   } else {
     loginDetails.userName = user + (new Date()).getTime()
+    loginDetails.roomId = room
     //loginDetails.userName = user 
     console.log('Enviou Join para o servidor com id: ', socket.id) 
     socket.emit('join', loginDetails)
@@ -158,6 +149,7 @@ function leaveinRoom() {
 //========================================================================================================//
 function buttonLogin(){
   userInput.disabled = true //Desabilita o texto
+  roomName.disabled = true
   connectButton.disabled = true //Desabilita o botão de Entrar
   stopconnectButton.disabled = false  //Habilita o botão de Sair
 }
@@ -177,6 +169,7 @@ function buttonLogout() {
 
   // Update user interface elements
   userInput.disabled = false //Habilita o texto
+  roomName.disabled = false
   connectButton.disabled = false
   stopconnectButton.disabled = true
 
