@@ -129,6 +129,7 @@ socket.on('disconnect', () => {
 //=======================================================================================================//
 
     socket.on('getRouterRtpCapabilities', (data, callback) => {
+      const router = defaultRoom.router;
       if (router) {
         //console.log('getRouterRtpCapabilities: ', router.rtpCapabilities);
         sendResponse(router.rtpCapabilities, callback);
@@ -607,12 +608,12 @@ const mediasoupOptions = {
 };
 
 let worker = null;
-let router = null;
+//let router = null;
 
 async function startWorker() {
   worker = await mediasoup.createWorker();
   //router = await worker.createRouter( { appData: { info: 'message-data-producer' } });
-  router = await worker.createRouter();
+  //router = await worker.createRouter();
   defaultRoom = await setupRoom('_default_room');
   console.log('-- mediasoup worker start. -- room:', defaultRoom.name);
 }
@@ -855,7 +856,6 @@ async function createTransport(roomname) {
       id: transport.id,
       iceParameters: transport.iceParameters,
       iceCandidates: transport.iceCandidates,
-      iceServers: transport.iceServers,
       dtlsParameters: transport.dtlsParameters,
       sctpParameters: transport.sctpParameters,
       sctpCapabilities: transport.sctpCapabilities,
