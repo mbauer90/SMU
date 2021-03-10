@@ -130,8 +130,8 @@ socket.on('disconnect', () => {
 
     socket.on('getRouterRtpCapabilities', (data, callback) => {
       const router = defaultRoom.router;
+      
       if (router) {
-        //console.log('getRouterRtpCapabilities: ', router.rtpCapabilities);
         sendResponse(router.rtpCapabilities, callback);
       }
       else {
