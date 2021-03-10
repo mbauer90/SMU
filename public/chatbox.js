@@ -16,6 +16,7 @@ function sendMessage() {
         localText.focus()
         var txt=document.createTextNode(message)
         chat.appendChild(txt)
+        $('#chat').scrollTop($('#chat').prop('scrollHeight'));
     }
   }
 
@@ -25,6 +26,7 @@ function updateChatBox(msg){
     var txt=document.createTextNode(msg.content)
     chat.appendChild(linebreak)
     chat.appendChild(txt)
+    $('#chat').scrollTop($('#chat').prop('scrollHeight'));
 }
 
 function stopChatBox(){

@@ -71,8 +71,10 @@ socket.on('leave_room', async (atualizaDetails) => {
   }
 
   loginDetails.numberOfClients = atualizaDetails.numberOfClients //atualiza o numero de peers
-  loginDetails.posClient = atualizaDetails.listaClientes.findIndex(item => item.userName == loginDetails.userName)+1
-  //console.log(atualizaDetails.listaClientes.indexOf(item => item.userName == loginDetails.userName))
+  //pega todos na sala do atual cliente/socket  
+  let ClientsinRoom = atualizaDetails.listaClientes.filter(item => item.roomId === loginDetails.roomId);
+
+  loginDetails.posClient = ClientsinRoom.findIndex(item => item.userName == loginDetails.userName)+1
 
   //stopChatBox()
   stopGame()

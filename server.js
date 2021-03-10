@@ -24,6 +24,7 @@ io.on('connection', (socket) => {
       loginDetails.numberOfClients = roomClients.length+1
       loginDetails.posClient = roomClients.length+1
       Clients.push(loginDetails)
+
       console.log(Clients)
 
       prepareRoom(socket,loginDetails)
@@ -41,6 +42,7 @@ io.on('connection', (socket) => {
       Clients.push(loginDetails)
 
       console.log(Clients)
+
       prepareRoom(socket,loginDetails)
       socket.join(loginDetails.roomId)
       //socket.join(loginDetails.roomId)
@@ -364,8 +366,6 @@ async function setupRoom(name) {
 
 function cleanUpPeer(roomname,socket) {
   const id = socket.id;
-  console.log('Chamou o CleanUpPeer', id)
-  console.log('Chamou o CleanUpPeer', roomname)
   removeConsumerSetDeep(roomname,id);
 
   const transport = getConsumerTrasnport(roomname,id);
