@@ -573,8 +573,8 @@ const mediasoup = require('mediasoup')
 const mediasoupOptions = {
   // Worker settings
   worker: {
-    rtcMinPort: 10000,
-    rtcMaxPort: 10100,
+    rtcMinPort: 24000,
+    rtcMaxPort: 24999,
     logLevel: 'warn',
     logTags: [
       'info',
@@ -588,7 +588,7 @@ const mediasoupOptions = {
   // WebRtcTransport settings
   webRtcTransport: {
     listenIps: [
-      { ip: '127.0.0.1', announcedIp: null }
+      { ip: '0.0.0.0', announcedIp: 'webrtc.smu20202.boidacarapreta.cc' }
     ],
     enableUdp: true,
     enableTcp: true,
@@ -604,7 +604,7 @@ let worker = null;
 //let router = null;
 
 async function startWorker() {
-  worker = await mediasoup.createWorker();
+  worker = await mediasoup.createWorker(mediasoupOptions.worker);
   //router = await worker.createRouter( { appData: { info: 'message-data-producer' } });
   //router = await worker.createRouter();
   defaultRoom = await setupRoom('_default_room');
