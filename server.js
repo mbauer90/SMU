@@ -149,7 +149,7 @@ socket.on('disconnect', () => {
       console.log('-- createProducerTransport ---room=%s', roomName);
       const { transport, params } = await createTransport(roomName);
       addProducerTrasport(roomName, socket.id, transport);
-      
+
       transport.observer.on('close', () => {
         const id = socket.id;
         removeProducerTransport(roomName, id);
@@ -582,16 +582,20 @@ const mediasoupOptions = {
       'dtls',
       'rtp',
       'srtp',
-      'rtcp',
     ],
   },
   // WebRtcTransport settings
   webRtcTransport: {
     listenIps: [
-      { ip: '0.0.0.0', announcedIp: 'webrtc.smu20202.boidacarapreta.cc' }
+    //  { ip: '0.0.0.0', announcedIp: '10.0.0.212' }
+      { ip: '10.158.0.2', announcedIp: 'webrtc.smu20202.boidacarapreta.cc' }
+    ],
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
     ],
     enableUdp: true,
-    enableTcp: true,
+    enableTcp: false,
     preferUdp: true,
     enableSctp: true,
     maxIncomingBitrate: 1500000,
@@ -849,6 +853,7 @@ async function createTransport(roomname) {
       id: transport.id,
       iceParameters: transport.iceParameters,
       iceCandidates: transport.iceCandidates,
+      iceServers: mediasoupOptions.webRtcTransport.iceServers,
       dtlsParameters: transport.dtlsParameters,
       sctpParameters: transport.sctpParameters,
       sctpCapabilities: transport.sctpCapabilities,
